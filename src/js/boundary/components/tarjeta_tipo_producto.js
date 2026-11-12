@@ -1,46 +1,53 @@
-import TarjetaSimple from "./tarjeta_simple.js";
-import TipoProducto from "../../entity/tipo_producto.js";
+import { html, render } from '../../../lib/lit-html.js';
+import './tarjeta_simple.js';
+import TipoProducto from '../../entity/tipo_producto.js';
 
-class TarjetTipoProducto extends HTMLElement {
+class TarjetaTipoProducto extends HTMLElement {
     constructor() {
         super();
-        this.tipoProducto = new TipoProducto();
-        this.tarjeta = new TarjetaSimple();
+        this._root = this.attachShadow({ mode: 'open' });
+        this._tipoProducto = new TipoProducto();
     }
 
-    /**
-     * Asigna los datos de la entidad TipoProducto al componente
-     * @param {TipoProducto} tipoProducto
-     */
     set datos(tipoProducto) {
-        this.tipoProducto = tipoProducto;
+        this._tipoProducto = tipoProducto || new TipoProducto();
+        this._dibujar();
+    }
+
+    get datos() {
+        return this._tipoProducto;
     }
 
     connectedCallback() {
-        this.tarjeta.innerHTML = "";
+        this._dibujar();
+    }
 
-        // 1. Título -> this.tipoProducto.nombre
-        let titulo = document.createElement("p");
-        titulo.setAttribute("slot", "titulo");
-        titulo.innerText = this.tipoProducto.nombre || "Sin nombre";
+    _manejarClick() {
+        this.dispatchEvent(new CustomEvent('seleccionar-tipo-producto', {
+            detail: this._tipoProducto,
+            bubbles: true,
+            composed: true
+        }));
+    }
 
-        // 2. Contenido -> this.tipoProducto.observaciones
-        let contenido = document.createElement("p");
-        contenido.setAttribute("slot", "contenido");
-        contenido.innerText = this.tipoProducto.observaciones || "Sin observaciones";
+    _template() {
+        const tp = this._tipoProducto;
 
-        // 3. Pie -> this.tipoProducto.activo
-        let pie = document.createElement("span");
-        pie.setAttribute("slot", "pie");
-        pie.innerText = this.tipoProducto.activo ? "Activo" : "Inactivo";
+        return html`
+            <tarjeta-simple 
+                id="tarjetaTipo-${tp.idTipoProducto || 'nuevo'}"
+                @click=${() => this._manejarClick()}>
+                <p slot="titulo">${tp.nombre || 'Sin nombre'}</p>
+                <p slot="contenido">${tp.observaciones || 'Sin observaciones'}</p>
+                <span slot="pie">${tp.activo ? 'Activo' : 'Inactivo'}</span>
+            </tarjeta-simple>
+        `;
+    }
 
-        this.tarjeta.appendChild(titulo);
-        this.tarjeta.appendChild(contenido);
-        this.tarjeta.appendChild(pie);
-
-        this.appendChild(this.tarjeta);
+    _dibujar() {
+        render(this._template(), this._root);
     }
 }
 
-customElements.define("tarjeta-tipoproducto", TarjetTipoProducto);
-export default TarjetTipoProducto;
+customElements.define('tarjeta-tipoproducto', TarjetaTipoProducto);
+export default TarjetaTipoProducto;

@@ -1,51 +1,36 @@
+import { html, render } from '../../../lib/lit-html.js';
+
 class TarjetaSimple extends HTMLElement {
     constructor() {
         super();
-        // Crea el Shadow DOM encapsulado para aislar la estructura y los estilos
-        this.root = this.attachShadow({ mode: "open" });
+        this._root = this.attachShadow({ mode: 'open' });
     }
 
     connectedCallback() {
-        // 1. Sección del Título (Header)
-        let titulo = document.createElement("div");
-        titulo.setAttribute("class", "header");
-        let slotTitulo = document.createElement("slot");
-        slotTitulo.setAttribute("name", "titulo");
-        slotTitulo.innerText = "Agregue un título";
-        titulo.appendChild(slotTitulo);
+        this._dibujar();
+    }
 
-        // 2. Sección del Contenido (Body)
-        let contenido = document.createElement("div");
-        contenido.setAttribute("class", "body");
-        let slotContenido = document.createElement("slot");
-        slotContenido.setAttribute("name", "contenido");
-        slotContenido.innerText = "Agregue un contenido";
-        contenido.appendChild(slotContenido);
+    _template() {
+        return html`
+            <link rel="stylesheet" href="./resources/estilos/tarjeta.css">
+            <div class="header">
+                <slot name="titulo">Agregue un título</slot>
+            </div>
+            <div class="body">
+                <slot name="contenido">Agregue un contenido</slot>
+            </div>
+            <div class="footer">
+                <slot name="pie">Agregue un pie</slot>
+            </div>
+        `;
+    }
 
-        // 3. Sección del Pie (Footer)
-        let pie = document.createElement("div");
-        pie.setAttribute("class", "footer");
-        let slotPie = document.createElement("slot");
-        slotPie.setAttribute("name", "pie");
-        slotPie.innerText = "Agregue un pie";
-        pie.appendChild(slotPie);
-
-        // 4. Hoja de estilos encapsulada dentro del Shadow DOM
-        let estilo = document.createElement("link");
-        estilo.setAttribute("rel", "stylesheet");
-        estilo.setAttribute("href", "./resources/estilos/tarjeta.css");
-
-        // 5. Montaje de todos los elementos en la raíz del componente
-        this.root.appendChild(estilo);
-        this.root.appendChild(titulo);
-        this.root.appendChild(contenido);
-        this.root.appendChild(pie);
+    _dibujar() {
+        render(this._template(), this._root);
     }
 }
 
 //FALTA DIBUJAR
 
-// Registro de la etiqueta HTML personalizada
-customElements.define("tarjeta-simple", TarjetaSimple);
-
+customElements.define('tarjeta-simple', TarjetaSimple);
 export default TarjetaSimple;

@@ -1,5 +1,5 @@
 import * as chai from "../../../lib/chai/index.js";
-import EmpleadoDAO from "../划分/../../../../src/js/control/empleado_dao.js";
+import EmpleadoDAO from "../../../../../src/js/control/empleado_dao.js";
 import DefaultResponse from "../../../../../src/js/entity/default_response.js";
 import Empleado from "../../../../../src/js/entity/empleado.js";
 
@@ -46,8 +46,8 @@ describe("EmpleadoDAO Integration Tests - Online", function () {
     it("Debe rechazar cuando falla la creación por datos inválidos (400 o 500)", function (done) {
       const empleadoInvalido = new Empleado();
       // Se excede el límite de longitud para forzar error en base de datos
-      empleadoInvalido.nombre = "A".repeat(200);
-
+      empleadoInvalido.nombre = "A".repeat(1000);
+      empleadoInvalido.activo = "valor-invalido";
       cut
         .create(empleadoInvalido)
         .then(() => {
@@ -279,7 +279,8 @@ describe("EmpleadoDAO Integration Tests - Online", function () {
     it("Debe rechazar al intentar actualizar con datos inválidos (400 o 500)", function (done) {
       const empleadoInvalido = new Empleado();
       // Se excede el límite de caracteres para provocar error de base de datos
-      empleadoInvalido.nombre = "A".repeat(200);
+      empleadoInvalido.nombre = "A".repeat(1000);
+      empleadoInvalido.activo = "valor-invalido";
 
       cut
         .update(idCreado, empleadoInvalido)

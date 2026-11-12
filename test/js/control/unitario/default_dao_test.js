@@ -27,11 +27,11 @@ suite("DefaultDAO Unit Test", function () {
       chai.assert.isDefined(cut.URL);
       chai.assert.equal(
         cut.BASE_URL,
-        "http://localhost:9080/CafefeApi-1.0-SNAPSHOT/v1/"
+        "http://localhost:9080/cafefe/v1/"
       );
       chai.assert.equal(
         cut.URL,
-        "http://localhost:9080/CafefeApi-1.0-SNAPSHOT/v1/"
+        "http://localhost:9080/cafefe/v1/"
       );
     });
   });

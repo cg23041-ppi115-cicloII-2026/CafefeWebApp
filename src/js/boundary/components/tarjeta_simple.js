@@ -43,6 +43,8 @@ class TarjetaSimple extends HTMLElement {
     }
 }
 
+//FALTA DIBUJAR
+
 // Registro de la etiqueta HTML personalizada
 customElements.define("tarjeta-simple", TarjetaSimple);
 

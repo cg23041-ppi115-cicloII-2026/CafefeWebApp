@@ -3,7 +3,7 @@ import DefaultError from "../entity/default_error.js";
 
 class DefaultDAO {  
   constructor() {
-    this.BASE_URL = `http://localhost:9080/Cafefe/v1/`;
+    this.BASE_URL = `http://localhost:9080/cafefe/v1/`;
     this.URL = this.BASE_URL;
   }
 

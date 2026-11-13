@@ -1,0 +1,61 @@
+:host {
+    display: block;
+    width: 100%;
+}
+
+.uid-badge {
+    font-weight: 700;
+    font-size: 0.8rem;
+    opacity: 0.85;
+    letter-spacing: 0.6px;
+}
+
+.cliente-nombre {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 2px 0 0 0;
+}
+
+.estado-tag {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.estado-tag.pendiente {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.estado-tag.lista {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.btn-accion {
+    width: 100%;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+}
+
+.btn-accion:hover {
+    opacity: 0.9;
+}
+
+.btn-preparar {
+    background-color: #6f4e37;
+    color: #ffffff;
+}
+
+.btn-entregar {
+    background-color: #28a745;
+    color: #ffffff;
+}

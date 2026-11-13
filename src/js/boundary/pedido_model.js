@@ -1,14 +1,16 @@
+// Tus 4 Web Components de la vista (carpeta ./componentes/)
 import './components/grid_categorias.js';
 import './components/catalogo_productos.js';
 import './components/detalle_producto.js';
 import './components/resumen_orden.js';
-
+// DAOs de la capa control/
 import TipoProductoDAO from '../control/tipo_producto_dao.js';
 import ProductoDAO from '../control/producto_dao.js';
 import ProductoTipoProductoDAO from '../control/producto_tipo_producto_dao.js';
 import OrdenDAO from '../control/orden_dao.js';
 import OrdenProductoDAO from '../control/orden_producto_dao.js';
 
+// Entidades de la capa entity/
 import Orden from '../entity/orden.js';
 import OrdenProducto from '../entity/orden_producto.js';
 
@@ -17,11 +19,15 @@ class PedidoModel extends HTMLElement {
         super();
         this.root = this.attachShadow({ mode: 'open' });
 
+        // Instancias de tus DAOs
         this.tipoProductoDAO = new TipoProductoDAO();
         this.productoDAO = new ProductoDAO();
+        this.productoTipoProductoDAO = new ProductoTipoProductoDAO();
         this.ordenDAO = new OrdenDAO();
+        this.ordenProductoDAO = new OrdenProductoDAO();
 
-        this.pasoActual = 1;
+        // Estado interno del flujo de 4 pasos
+        this.pasoActual = 1; // 1: Categorías, 2: Catálogo, 3: Detalle, 4: Resumen
         this.categorias = [];
         this.productos = [];
         this.categoriaSeleccionadaId = null;
@@ -37,61 +43,43 @@ class PedidoModel extends HTMLElement {
 
     async _cargarDatosDesdeAPI() {
         try {
-            const [respCategorias, respProductos] = await Promise.all([
-                this.tipoProductoDAO.findRange(0, 50),
-                this.productoDAO.findRange(0, 50)
-            ]);
+            // Consultamos en paralelo categorías, productos y su relación muchos-a-muchos
+        const [respCategorias, respProductos, respRelaciones] = await Promise.all([
+    this.tipoProductoDAO.findRange(0, 50),
+    this.productoDAO.findRange(0, 50),
+    this.productoTipoProductoDAO.findRange(0, 50)
+]);
 
             const listaCategorias = respCategorias.datos || [];
-            const listaProductos = (respProductos.datos || []).filter(p => p.activo !== false);
+            const listaProductos = respProductos.datos || [];
+            const listaRelaciones = respRelaciones.datos || [];
 
+            // Filtramos solo categorías activas y asignamos ruta de imagen
             this.categorias = listaCategorias
                 .filter(cat => cat.activo !== false)
                 .map(cat => ({
                     ...cat,
-                    imagen: './resources/img/logo_cafe.png'
+                    imagen: cat.imagen || `./resources/img/categorias/${cat.idTipoProducto}.png`
                 }));
 
-            const productosEnriquecidos = await Promise.all(
-                listaProductos.map(async (prod) => {
-                    let idTipoProducto = null;
-                    let nombreTipoProducto = 'General';
-
-                    try {
-                        const ptpDAO = new ProductoTipoProductoDAO(prod.idProducto);
-                        const respRel = await ptpDAO.findRange(0, 50);
-                        const relaciones = respRel.datos || [];
-
-                        if (relaciones.length > 0) {
-                            const primera = relaciones[0];
-                            idTipoProducto =
-                                primera.idTipoProducto?.idTipoProducto ||
-                                primera.tipoProducto?.idTipoProducto ||
-                                (typeof primera.idTipoProducto === 'string' ? primera.idTipoProducto : null);
-
-                            const catEncontrada = this.categorias.find(c => c.idTipoProducto === idTipoProducto);
-                            if (catEncontrada) {
-                                nombreTipoProducto = catEncontrada.nombre;
-                            }
-                        }
-                    } catch (e) {
-                        console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
-                    }
+            // Cruzamos cada producto activo con su idTipoProducto de producto_tipo_producto
+            this.productos = listaProductos
+                .filter(prod => prod.activo !== false)
+                .map(prod => {
+                    const rel = listaRelaciones.find(r => r.idProducto === prod.idProducto);
+                    const cat = this.categorias.find(c => c.idTipoProducto === rel?.idTipoProducto);
 
                     return {
                         ...prod,
-                        idTipoProducto,
-                        nombreTipoProducto,
+                        idTipoProducto: rel ? rel.idTipoProducto : null,
+                        nombreTipoProducto: cat ? cat.nombre : 'General',
                         subcategoria: prod.subcategoria || 'Todos',
-                        tamanos: ['S', 'M', 'L'],
-                        imagen: './resources/img/logo_cafe.png'
+                        tamanos: prod.tamanos || ['S', 'M', 'L'],
+                        imagen: prod.imagen || `./resources/img/productos/${prod.idProducto}.png`
                     };
-                })
-            );
-
-            this.productos = productosEnriquecidos;
+                });
         } catch (err) {
-            console.error('Error al cargar menú desde Cafefe-api:', err);
+            console.error('Error al cargar el catálogo de Cafefe:', err);
         } finally {
             this.cargando = false;
             this._dibujar();
@@ -137,21 +125,19 @@ class PedidoModel extends HTMLElement {
 
     async _confirmarYEnviarOrden({ items }) {
         try {
+            // 1. Creamos la cabecera en la tabla 'orden' (sin factura ni pago, pendiente en local)
             const nuevaOrden = new Orden({
                 fechaCreacion: new Date().toISOString()
             });
 
             const respOrden = await this.ordenDAO.create(nuevaOrden);
-            const idOrdenGenerado = respOrden.datos?.id;
+            const ordenCreada = respOrden.datos || respOrden;
+            const idOrdenGenerado = ordenCreada.idOrden;
 
-            if (!idOrdenGenerado) {
-                throw new Error('El servidor no devolvió el ID de la orden creada');
-            }
-
-            const ordenProductoDAO = new OrdenProductoDAO(idOrdenGenerado);
-
+            // 2. Guardamos cada ítem en 'orden_producto' vinculado al idOrden generado
             const promesasDetalles = [];
             items.forEach(item => {
+                // Como orden_producto no tiene columna 'cantidad', insertamos 1 fila por unidad
                 for (let i = 0; i < item.cantidad; i++) {
                     const detalle = new OrdenProducto({
                         idOrden: idOrdenGenerado,
@@ -159,7 +145,7 @@ class PedidoModel extends HTMLElement {
                         precio: item.precio,
                         observaciones: `Tamaño: ${item.tamano}`
                     });
-                    promesasDetalles.push(ordenProductoDAO.create(detalle));
+                    promesasDetalles.push(this.ordenProductoDAO.create(detalle));
                 }
             });
 
@@ -175,77 +161,88 @@ class PedidoModel extends HTMLElement {
         }
     }
 
-    _dibujar() {
-        this.root.innerHTML = '';
-
+    _renderPaso() {
         if (this.cargando) {
-            const p = document.createElement('p');
-            p.style.cssText = 'text-align:center; padding:3rem; color:#4B3621;';
-            p.textContent = 'Cargando menú de Cafefe...';
-            this.root.appendChild(p);
-            return;
+            return html`<p style="text-align:center; padding:3rem; color:#4B3621;">Cargando menú de Cafefe...</p>`;
         }
 
-        if (this.pasoActual === 1) {
-            const grid = document.createElement('grid-categorias');
-            grid.categorias = this.categorias;
-            grid.addEventListener('categoria-seleccionada', (e) => {
-                this.categoriaSeleccionadaId = e.detail.idTipoProducto;
-                this.pasoActual = 2;
-                this._dibujar();
-            });
-            this.root.appendChild(grid);
-        } else if (this.pasoActual === 2) {
-            const catalogo = document.createElement('catalogo-productos');
-            catalogo.categorias = this.categorias;
-            catalogo.productos = this.productos;
-            catalogo.categoriaActivaId = this.categoriaSeleccionadaId;
-            catalogo.cantidadCarrito = this._totalItemsCarrito();
+        switch (this.pasoActual) {
+            case 1:
+                return html`
+                    <grid-categorias
+                        .categorias=${this.categorias}
+                        @categoria-seleccionada=${(e) => {
+                            this.categoriaSeleccionadaId = e.detail.idTipoProducto;
+                            this.pasoActual = 2;
+                            this._dibujar();
+                        }}>
+                    </grid-categorias>
+                `;
 
-            catalogo.addEventListener('seleccionar-producto', (e) => {
-                this.productoSeleccionado = e.detail;
-                this.pasoActual = 3;
-                this._dibujar();
-            });
-            catalogo.addEventListener('agregar-rapido', (e) => {
-                this._agregarAlCarrito(e.detail, 'M', 1);
-            });
-            catalogo.addEventListener('ver-orden', () => {
-                this.pasoActual = 4;
-                this._dibujar();
-            });
-            this.root.appendChild(catalogo);
-        } else if (this.pasoActual === 3) {
-            const detalle = document.createElement('detalle-producto');
-            detalle.producto = this.productoSeleccionado;
+            case 2:
+                return html`
+                    <catalogo-productos
+                        .categorias=${this.categorias}
+                        .productos=${this.productos}
+                        .categoriaActivaId=${this.categoriaSeleccionadaId}
+                        .cantidadCarrito=${this._totalItemsCarrito()}
+                        @seleccionar-producto=${(e) => {
+                            this.productoSeleccionado = e.detail;
+                            this.pasoActual = 3;
+                            this._dibujar();
+                        }}
+                        @agregar-rapido=${(e) => {
+                            this._agregarAlCarrito(e.detail, 'M', 1);
+                        }}
+                        @ver-orden=${() => {
+                            this.pasoActual = 4;
+                            this._dibujar();
+                        }}>
+                    </catalogo-productos>
+                `;
 
-            detalle.addEventListener('agregar-carrito', (e) => {
-                const { producto, tamano, cantidad } = e.detail;
-                this._agregarAlCarrito(producto, tamano, cantidad);
-                this.pasoActual = 2;
-                this._dibujar();
-            });
-            detalle.addEventListener('regresar', () => {
-                this.pasoActual = 2;
-                this._dibujar();
-            });
-            this.root.appendChild(detalle);
-        } else if (this.pasoActual === 4) {
-            const resumen = document.createElement('resumen-orden');
-            resumen.items = this.carrito;
+            case 3:
+                return html`
+                    <detalle-producto
+                        .producto=${this.productoSeleccionado}
+                        @agregar-carrito=${(e) => {
+                            const { producto, tamano, cantidad } = e.detail;
+                            this._agregarAlCarrito(producto, tamano, cantidad);
+                            this.pasoActual = 2;
+                            this._dibujar();
+                        }}
+                        @regresar=${() => {
+                            this.pasoActual = 2;
+                            this._dibujar();
+                        }}>
+                    </detalle-producto>
+                `;
 
-            resumen.addEventListener('actualizar-cantidad', (e) => {
-                this._actualizarCantidadCarrito(e.detail.index, e.detail.delta);
-            });
-            resumen.addEventListener('seguir-pidiendo', () => {
-                this.pasoActual = 2;
-                this._dibujar();
-            });
-            resumen.addEventListener('confirmar-orden', (e) => {
-                this._confirmarYEnviarOrden(e.detail);
-            });
-            this.root.appendChild(resumen);
+            case 4:
+                return html`
+                    <resumen-orden
+                        .items=${this.carrito}
+                        @actualizar-cantidad=${(e) => {
+                            this._actualizarCantidadCarrito(e.detail.index, e.detail.delta);
+                        }}
+                        @seguir-pidiendo=${() => {
+                            this.pasoActual = 2;
+                            this._dibujar();
+                        }}
+                        @confirmar-orden=${(e) => this._confirmarYEnviarOrden(e.detail)}>
+                    </resumen-orden>
+                `;
         }
+    }
+
+    _template() {
+        return html`
+            ${this._renderPaso()}
+        `;
+    }
+
+    _dibujar() {
+        render(this._template(), this.root);
     }
 }
 

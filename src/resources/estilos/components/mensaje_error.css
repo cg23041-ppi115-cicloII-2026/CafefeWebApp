@@ -1,0 +1,76 @@
+:host {
+    display: block;
+    margin: 0.75rem 0;
+    font-family: var(--fuente-principal, system-ui, sans-serif);
+}
+
+.alerta-error {
+    background-color: var(--estado-error-bg, #fdecea);
+    border: 1px solid #f5c2c7;
+    border-left: 6px solid var(--apple-red, #C8322B);
+    color: var(--apple-red, #C8322B);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 6px rgba(200, 50, 43, 0.12);
+}
+
+.contenido {
+    flex: 1;
+}
+
+.cabecera {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.titulo {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.badge-codigo {
+    background: var(--apple-red, #C8322B);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+
+.detalle {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.acciones {
+    display: flex;
+    gap: 8px;
+}
+
+button {
+    border: none;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-reintentar {
+    background-color: var(--apple-red, #C8322B);
+    color: #fff;
+}
+
+.btn-cerrar {
+    background-color: transparent;
+    color: var(--apple-red, #C8322B);
+    border: 1px solid #f1aeb5;
+}

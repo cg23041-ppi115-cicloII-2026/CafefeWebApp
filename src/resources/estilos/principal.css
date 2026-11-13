@@ -1,0 +1,60 @@
+:root {
+    /* Paleta oficial Cafefe */
+    --coffee-brown: #4B3621;
+    --coffee-brown-hover: #3b2a19;
+    --apple-red: #C8322B;
+    --apple-red-hover: #a82822;
+    --vanilla-beige: #EDE0C8;
+    --vanilla-beige-suave: #f6efe2;
+    --blanco-puro: #FFFFFF;
+
+    /* Variables semánticas para los componentes */
+    --color-primario: var(--coffee-brown);
+    --color-primario-hover: var(--coffee-brown-hover);
+    --color-acento: var(--apple-red);
+    --color-acento-hover: var(--apple-red-hover);
+
+    --bg-app: var(--vanilla-beige);
+    --bg-contenedor: var(--vanilla-beige-suave);
+    --bg-tarjeta: var(--blanco-puro);
+
+    --texto-principal: var(--coffee-brown);
+    --texto-secundario: #6e5740;
+    --texto-claro: var(--blanco-puro);
+    --borde-suave: #d8c6a8;
+    --borde-activo: var(--coffee-brown);
+
+    /* Estados operativos (Cocina / Barista) */
+    --estado-pendiente-bg: var(--vanilla-beige);
+    --estado-pendiente-txt: var(--coffee-brown);
+    --estado-listo-bg: #d4edda;
+    --estado-listo-txt: #155724;
+    --estado-exito: #28a745;
+    --estado-error-bg: #fdecea;
+    --estado-error-txt: var(--apple-red);
+    --estado-error-borde: var(--apple-red);
+
+    /* Tipografía y estructura */
+    --fuente-principal: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radio-tarjeta: 10px;
+    --radio-panel: 14px;
+    --sombra-suave: 0 2px 6px rgba(75, 54, 33, 0.1);
+    --sombra-elevada: 0 4px 12px rgba(75, 54, 33, 0.16);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    font-family: var(--fuente-principal);
+    background-color: var(--bg-app);
+    color: var(--texto-principal);
+}

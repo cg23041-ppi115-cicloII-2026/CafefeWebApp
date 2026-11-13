@@ -1,0 +1,74 @@
+:host {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    border: 1px solid var(--borde-suave, #d8c6a8);
+    border-radius: var(--radio-tarjeta, 10px);
+    box-shadow: var(--sombra-suave, 0 2px 6px rgba(75, 54, 33, 0.1));
+    overflow: hidden;
+    font-family: var(--fuente-principal, system-ui, sans-serif);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host(:hover) {
+    transform: translateY(-2px);
+    box-shadow: var(--sombra-elevada, 0 4px 12px rgba(75, 54, 33, 0.16));
+}
+
+/* Izquierda: UID de orden y nombre del cliente */
+.header {
+    background-color: var(--coffee-brown, #4B3621);
+    color: var(--blanco-puro, #FFFFFF);
+    padding: 0.9rem 1.25rem;
+    min-width: 230px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.header ::slotted(*) {
+    margin: 0;
+}
+
+/* Centro: Estado del pedido */
+.body {
+    padding: 0.9rem 1.5rem;
+    color: var(--coffee-brown, #4B3621);
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.body ::slotted(*) {
+    margin: 0;
+}
+
+/* Derecha: Botón de acción */
+.footer {
+    background-color: var(--blanco-puro, #FFFFFF);
+    border-left: 1px solid var(--borde-suave, #d8c6a8);
+    padding: 0.9rem 1.25rem;
+    min-width: 210px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 700px) {
+    :host {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .header,
+    .footer {
+        min-width: unset;
+        border-left: none;
+    }
+}

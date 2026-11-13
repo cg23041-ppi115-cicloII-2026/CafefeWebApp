@@ -30,7 +30,5 @@ class TarjetaSimple extends HTMLElement {
     }
 }
 
-//FALTA DIBUJAR
-
 customElements.define('tarjeta-simple', TarjetaSimple);
 export default TarjetaSimple;

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafefe | Pedido en Línea</title>
+    <link rel="stylesheet" href="./resources/estilos/index.css">
+</head>
+<body>
+    <div class="layout-grid">
+        <header class="header-cafefe">
+            <div class="marca-box">
+                <img src="./resources/img/logo_cafe.png" alt="Logo Cafefe" class="logo-img">
+                <span class="marca-nombre">Cafefe</span>
+            </div>
+            <nav class="nav-links">
+                <a href="./index.html" class="activo">Inicio</a>
+                <a href="./pedido.html">Hacer Pedido</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="vista-inicio" id="vistaInicio">
+                <div class="hero-contenedor">
+                    <div class="hero-texto">
+                        <span class="eyebrow-text">Cafetería Artesanal</span>
+                        <h1>¡Tu café favorito, listo cuando llegues!</h1>
+                        <p class="descripcion-general">
+                            Explora nuestro menú de bebidas calientes, cafés fríos, postres y desayunos. Realiza tu pedido en línea sin filas y paga cómodamente al recoger en nuestro local.
+                        </p>
+
+                        <div class="pasos-grid">
+                            <div class="paso-item">
+                                <div class="paso-numero">1</div>
+                                <div class="paso-texto">
+                                    <strong>Elige tu categoría</strong>
+                                    <span>Bebidas, postres y más</span>
+                                </div>
+                            </div>
+                            <div class="paso-item">
+                                <div class="paso-numero">2</div>
+                                <div class="paso-texto">
+                                    <strong>Personaliza tu orden</strong>
+                                    <span>Tamaño y cantidad</span>
+                                </div>
+                            </div>
+                            <div class="paso-item">
+                                <div class="paso-numero">3</div>
+                                <div class="paso-texto">
+                                    <strong>Recoge y paga</strong>
+                                    <span>Directo en el local</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hero-acciones">
+                            <button type="button" id="btnIrPedido" class="btn-principal">ORDENAR AHORA</button>
+                        </div>
+                    </div>
+
+                    <div class="hero-grafico">
+                        <div class="circulo-decorativo">
+                            <img src="./resources/img/logo_cafe.png" alt="Cafefe" class="hero-logo-grande">
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer-cafefe">
+            <p>© 2026 Cafefe &nbsp;·&nbsp; Pedido en Línea &nbsp;·&nbsp; Pago al recoger en local</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnPedido = document.getElementById('btnIrPedido');
+            if (btnPedido) {
+                btnPedido.addEventListener('click', () => {
+                    window.location.href = 'pedido.html';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

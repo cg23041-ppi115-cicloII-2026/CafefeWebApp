@@ -1,4 +1,4 @@
-import { html, render } from '../../../lib/lit-html.js';
+import { html, render } from '../../lib/lit-html.js';
 import './tarjeta_simple.js';
 
 class GridCategorias extends HTMLElement {

@@ -1,4 +1,4 @@
-import { html, render } from '../../../lib/lit-html.js';
+import { html, render } from '../../lib/lit-html.js';
 
 class ResumenOrden extends HTMLElement {
     constructor() {
@@ -55,7 +55,7 @@ class ResumenOrden extends HTMLElement {
         const total = this._calcularTotal().toFixed(2);
 
         return html`
-            <link rel="stylesheet" href="./resources/estilos/resumen_orden.css">
+            <link rel="stylesheet" href="./resources/estilos/components/resumen_orden.css">
             <section class="resumen-layout" id="resumenOrdenLayout">
                 
                 <div class="carrito-lista-box">

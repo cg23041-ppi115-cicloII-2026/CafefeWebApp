@@ -1,4 +1,4 @@
-import { html, render } from '../../../lib/lit-html.js';
+import { html, render } from '../../lib/lit-html.js';
 import './tarjeta_simple.js';
 import TipoProducto from '../../entity/tipo_producto.js';
 

@@ -1,4 +1,4 @@
-import { html, render } from '../../../lib/lit-html.js';
+import { html, render } from '../../lib/lit-html.js';
 import './tarjeta_simple.js';
 
 class CatalogoProductos extends HTMLElement {
@@ -125,7 +125,7 @@ class CatalogoProductos extends HTMLElement {
         const productosVisibles = this._obtenerProductosFiltrados();
 
         return html`
-            <link rel="stylesheet" href="./resources/estilos/catalogo_productos.css">
+            <link rel="stylesheet" href="./resources/estilos/components/catalogo_productos.css">
             <div class="catalogo-layout" id="catalogoLayout">
                 
                 <aside class="sidebar-categorias" id="sidebarCategorias">

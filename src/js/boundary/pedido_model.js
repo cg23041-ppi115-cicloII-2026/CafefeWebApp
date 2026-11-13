@@ -43,45 +43,62 @@ class PedidoModel extends HTMLElement {
         await this._cargarDatosDesdeAPI();
     }
 
-    async _cargarDatosDesdeAPI() {
+ async _cargarDatosDesdeAPI() {
         try {
-            // Consultamos en paralelo categorías, productos y su relación muchos-a-muchos
-        const [respCategorias, respProductos, respRelaciones] = await Promise.all([
-    this.tipoProductoDAO.findRange(0, 50),
-    this.productoDAO.findRange(0, 50),
-    this.productoTipoProductoDAO.findRange(0, 50)
-]);
+            // 1. Cargamos categorías y productos en paralelo (máx 50 según validación del backend)
+            const [respCategorias, respProductos] = await Promise.all([
+                this.tipoProductoDAO.findRange(0, 50),
+                this.productoDAO.findRange(0, 50)
+            ]);
 
             const listaCategorias = respCategorias.datos || [];
-            const listaProductos = respProductos.datos || [];
-            const listaRelaciones = respRelaciones.datos || [];
+            const listaProductos = (respProductos.datos || []).filter(p => p.activo !== false);
 
-            // Filtramos solo categorías activas y asignamos ruta de imagen
             this.categorias = listaCategorias
                 .filter(cat => cat.activo !== false)
                 .map(cat => ({
                     ...cat,
-                    imagen: cat.imagen || `./resources/img/categorias/${cat.idTipoProducto}.png`
+                    imagen: './resources/img/logo_cafe.png'
                 }));
 
-            // Cruzamos cada producto activo con su idTipoProducto de producto_tipo_producto
-            this.productos = listaProductos
-                .filter(prod => prod.activo !== false)
-                .map(prod => {
-                    const rel = listaRelaciones.find(r => r.idProducto === prod.idProducto);
-                    const cat = this.categorias.find(c => c.idTipoProducto === rel?.idTipoProducto);
+            // 2. Para cada producto, consultamos su sub-recurso producto/{idProducto}/tipoproducto/
+            const productosEnriquecidos = await Promise.all(
+                listaProductos.map(async (prod) => {
+                    let idTipoProducto = null;
+                    let nombreTipoProducto = 'General';
+
+                    try {
+                        const ptpDAO = new ProductoTipoProductoDAO(prod.idProducto);
+                        const respRel = await ptpDAO.findRange(0, 50);
+                        const relaciones = respRel.datos || [];
+
+                        if (relaciones.length > 0) {
+                            // Soporta tanto si el backend devuelve el objeto relación o el TipoProducto directo
+                            const primera = relaciones[0];
+                            idTipoProducto = primera.idTipoProducto || primera.idTipoProducto?.idTipoProducto || null;
+                            const catEncontrada = this.categorias.find(c => c.idTipoProducto === idTipoProducto);
+                            if (catEncontrada) {
+                                nombreTipoProducto = catEncontrada.nombre;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
+                    }
 
                     return {
                         ...prod,
-                        idTipoProducto: rel ? rel.idTipoProducto : null,
-                        nombreTipoProducto: cat ? cat.nombre : 'General',
+                        idTipoProducto,
+                        nombreTipoProducto,
                         subcategoria: prod.subcategoria || 'Todos',
-                        tamanos: prod.tamanos || ['S', 'M', 'L'],
-                        imagen: prod.imagen || `./resources/img/productos/${prod.idProducto}.png`
+                        tamanos: ['S', 'M', 'L'],
+                        imagen: './resources/img/logo_cafe.png'
                     };
-                });
+                })
+            );
+
+            this.productos = productosEnriquecidos;
         } catch (err) {
-            console.error('Error al cargar el catálogo de Cafefe:', err);
+            console.error('Error al cargar menú desde Cafefe-api:', err);
         } finally {
             this.cargando = false;
             this._dibujar();
@@ -127,19 +144,24 @@ class PedidoModel extends HTMLElement {
 
     async _confirmarYEnviarOrden({ items }) {
         try {
-            // 1. Creamos la cabecera en la tabla 'orden' (sin factura ni pago, pendiente en local)
+            // 1. Creamos la cabecera en la tabla 'orden'
             const nuevaOrden = new Orden({
                 fechaCreacion: new Date().toISOString()
             });
 
             const respOrden = await this.ordenDAO.create(nuevaOrden);
-            const ordenCreada = respOrden.datos || respOrden;
-            const idOrdenGenerado = ordenCreada.idOrden;
+            const idOrdenGenerado = respOrden.datos?.id;
 
-            // 2. Guardamos cada ítem en 'orden_producto' vinculado al idOrden generado
+            if (!idOrdenGenerado) {
+                throw new Error('El servidor no devolvió el ID de la orden creada');
+            }
+
+            // 2. Instanciamos OrdenProductoDAO con el idOrden recién creado
+            const ordenProductoDAO = new OrdenProductoDAO(idOrdenGenerado);
+
+            // 3. Guardamos cada ítem en POST /cafefe/v1/orden/{idOrden}/producto/
             const promesasDetalles = [];
             items.forEach(item => {
-                // Como orden_producto no tiene columna 'cantidad', insertamos 1 fila por unidad
                 for (let i = 0; i < item.cantidad; i++) {
                     const detalle = new OrdenProducto({
                         idOrden: idOrdenGenerado,
@@ -147,7 +169,7 @@ class PedidoModel extends HTMLElement {
                         precio: item.precio,
                         observaciones: `Tamaño: ${item.tamano}`
                     });
-                    promesasDetalles.push(this.ordenProductoDAO.create(detalle));
+                    promesasDetalles.push(ordenProductoDAO.create(detalle));
                 }
             });
 

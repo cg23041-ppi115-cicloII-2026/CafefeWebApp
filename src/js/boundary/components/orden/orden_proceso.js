@@ -62,7 +62,10 @@ class OrdenProceso extends HTMLElement {
                 <div class="acciones-proceso">
                     <button type="button" class="btn-devolver" id="btnDevolver">Devolver a Cola</button>
                     <button type="button" class="btn-completar" id="btnCompletar" ${!todosListos ? "disabled" : ""}>
-                        ¡Pedido Listo!
+                        Pedido Listo
+                    </button>
+                    <button type="button" class="btn-cancelar-proceso" id="btnCancelar">
+                        Cancelar Pedido
                     </button>
                 </div>
             </div>
@@ -86,6 +89,14 @@ class OrdenProceso extends HTMLElement {
 
         this._root.querySelector("#btnCompletar").addEventListener("click", () => {
             this.dispatchEvent(new CustomEvent("orden-completada", {
+                detail: this._orden,
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        this._root.querySelector("#btnCancelar").addEventListener("click", () => {
+            this.dispatchEvent(new CustomEvent("cancelar-orden", {
                 detail: this._orden,
                 bubbles: true,
                 composed: true

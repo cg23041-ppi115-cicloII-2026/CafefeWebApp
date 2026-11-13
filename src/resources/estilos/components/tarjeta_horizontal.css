@@ -23,8 +23,9 @@
 .header {
     background-color: var(--coffee-brown, #4B3621);
     color: var(--blanco-puro, #FFFFFF);
-    padding: 0.9rem 1.25rem;
-    min-width: 230px;
+    padding: 0.8rem 1rem;
+    flex: 1.2;
+    min-width: 140px;
     align-self: stretch;
     display: flex;
     flex-direction: column;
@@ -37,11 +38,13 @@
 
 /* Centro: Estado del pedido */
 .body {
-    padding: 0.9rem 1.5rem;
+    padding: 0.6rem 0.8rem;
     color: var(--coffee-brown, #4B3621);
     flex: 1;
+    min-width: 120px;
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 .body ::slotted(*) {
@@ -52,8 +55,9 @@
 .footer {
     background-color: var(--blanco-puro, #FFFFFF);
     border-left: 1px solid var(--borde-suave, #d8c6a8);
-    padding: 0.9rem 1.25rem;
-    min-width: 210px;
+    padding: 0.6rem 0.8rem;
+    flex: 1.2;
+    min-width: 140px;
     align-self: stretch;
     display: flex;
     align-items: center;

@@ -1,5 +1,3 @@
-import { html, render } from '../../lib/lit-html.js';
-
 class ResumenOrden extends HTMLElement {
     constructor() {
         super();
@@ -51,35 +49,15 @@ class ResumenOrden extends HTMLElement {
         }));
     }
 
-    _template() {
+    _dibujar() {
         const total = this._calcularTotal().toFixed(2);
 
-        return html`
+        this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/resumen_orden.css">
             <section class="resumen-layout" id="resumenOrdenLayout">
                 
-                <div class="carrito-lista-box">
+                <div class="carrito-lista-box" id="carritoListaBox">
                     <h2 class="resumen-titulo">Resumen del Carrito</h2>
-                    ${this._items.length > 0
-                        ? this._items.map((item, idx) => html`
-                            <div class="carrito-item" id="itemCarrito-${idx}">
-                                <img src="${item.imagen || './resources/img/default_cafe.png'}" alt="${item.nombre}" class="item-img">
-                                <div class="item-datos">
-                                    <h3 class="item-nombre">${item.nombre}</h3>
-                                    <span class="item-meta">Tamaño: ${item.tamano || 'M'} · $${Number(item.precio).toFixed(2)} c/u</span>
-                                    <div class="item-controles">
-                                        <button type="button" class="btn-mini" @click=${() => this._cambiarCantidad(idx, -1)}>-</button>
-                                        <span>${item.cantidad}</span>
-                                        <button type="button" class="btn-mini" @click=${() => this._cambiarCantidad(idx, 1)}>+</button>
-                                    </div>
-                                </div>
-                                <div class="item-subtotal">
-                                    $${(Number(item.precio) * Number(item.cantidad)).toFixed(2)}
-                                </div>
-                            </div>
-                        `)
-                        : html`<p class="carrito-vacio">Tu carrito está vacío.</p>`
-                    }
                 </div>
 
                 <aside class="pedido-panel">
@@ -104,7 +82,7 @@ class ResumenOrden extends HTMLElement {
                         </div>
                     </div>
 
-                    <button type="button" class="btn-seguir" id="btnSeguirPidiendo" @click=${() => this._seguirPidiendo()}>
+                    <button type="button" class="btn-seguir" id="btnSeguirPidiendo">
                         Seguir pidiendo
                     </button>
 
@@ -112,17 +90,55 @@ class ResumenOrden extends HTMLElement {
                         type="button" 
                         class="btn-confirmar" 
                         id="btnConfirmarOrden"
-                        ?disabled=${this._items.length === 0}
-                        @click=${() => this._confirmarOrden()}>
+                        ${this._items.length === 0 ? 'disabled' : ''}>
                         Confirmar Orden
                     </button>
                 </aside>
             </section>
         `;
-    }
 
-    _dibujar() {
-        render(this._template(), this._root);
+        const listaBox = this._root.getElementById('carritoListaBox');
+
+        if (this._items.length === 0) {
+            const vacio = document.createElement('p');
+            vacio.className = 'carrito-vacio';
+            vacio.textContent = 'Tu carrito está vacío.';
+            listaBox.appendChild(vacio);
+        } else {
+            this._items.forEach((item, idx) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'carrito-item';
+                itemDiv.id = `itemCarrito-${idx}`;
+
+                const precioUnitario = Number(item.precio).toFixed(2);
+                const subtotalItem = (Number(item.precio) * Number(item.cantidad)).toFixed(2);
+                const imagenSrc = item.imagen || './resources/img/default_cafe.png';
+
+                itemDiv.innerHTML = `
+                    <img src="${imagenSrc}" alt="${item.nombre}" class="item-img">
+                    <div class="item-datos">
+                        <h3 class="item-nombre">${item.nombre}</h3>
+                        <span class="item-meta">Tamaño: ${item.tamano || 'M'} · $${precioUnitario} c/u</span>
+                        <div class="item-controles">
+                            <button type="button" class="btn-mini btn-restar">-</button>
+                            <span>${item.cantidad}</span>
+                            <button type="button" class="btn-mini btn-sumar">+</button>
+                        </div>
+                    </div>
+                    <div class="item-subtotal">
+                        $${subtotalItem}
+                    </div>
+                `;
+
+                itemDiv.querySelector('.btn-restar').addEventListener('click', () => this._cambiarCantidad(idx, -1));
+                itemDiv.querySelector('.btn-sumar').addEventListener('click', () => this._cambiarCantidad(idx, 1));
+
+                listaBox.appendChild(itemDiv);
+            });
+        }
+
+        this._root.getElementById('btnSeguirPidiendo').addEventListener('click', () => this._seguirPidiendo());
+        this._root.getElementById('btnConfirmarOrden').addEventListener('click', () => this._confirmarOrden());
     }
 }
 

@@ -1,4 +1,3 @@
-import { html, render } from '../../lib/lit-html.js';
 import './tarjeta_simple.js';
 
 class GridCategorias extends HTMLElement {
@@ -41,48 +40,54 @@ class GridCategorias extends HTMLElement {
         }));
     }
 
-    _template() {
-        return html`
+    _dibujar() {
+        this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/grid_categorias.css">
             <section class="categorias-seccion" id="seccionCategorias">
-                ${this._titulo ? html`
-                    <h1 class="categorias-titulo" id="tituloCategorias">${this._titulo}</h1>
-                ` : ''}
-
-                <div class="categorias-grid" id="gridCategorias">
-                    ${this._categorias.length > 0
-                        ? this._categorias.map(cat => html`
-                            <tarjeta-simple 
-                                id="cardCat-${cat.idTipoProducto}"
-                                @click=${() => this._seleccionarCategoria(cat)}>
-                                
-                                <div slot="titulo" class="cat-imagen-box">
-                                    <img 
-                                        src="${cat.imagen || './resources/img/default_cafe.png'}" 
-                                        alt="${cat.nombre}" 
-                                        class="cat-imagen"
-                                        id="imgCat-${cat.idTipoProducto}">
-                                </div>
-
-                                <div slot="contenido" class="cat-nombre-box">
-                                    <span class="cat-nombre" id="nombreCat-${cat.idTipoProducto}">${cat.nombre}</span>
-                                </div>
-
-                                <div slot="pie" class="cat-pie">
-                                    <span>Explorar</span>
-                                    <span>→</span>
-                                </div>
-                            </tarjeta-simple>
-                        `)
-                        : html`<p class="estado-vacio" id="categoriasVacias">No hay categorías disponibles.</p>`
-                    }
-                </div>
+                ${this._titulo ? `<h1 class="categorias-titulo" id="tituloCategorias">${this._titulo}</h1>` : ''}
+                <div class="categorias-grid" id="gridCategorias"></div>
             </section>
         `;
-    }
 
-    _dibujar() {
-        render(this._template(), this._root);
+        const grid = this._root.getElementById('gridCategorias');
+
+        if (this._categorias.length === 0) {
+            const vacio = document.createElement('p');
+            vacio.className = 'estado-vacio';
+            vacio.id = 'categoriasVacias';
+            vacio.textContent = 'No hay categorías disponibles.';
+            grid.appendChild(vacio);
+            return;
+        }
+
+        this._categorias.forEach(cat => {
+            const card = document.createElement('tarjeta-simple');
+            card.id = `cardCat-${cat.idTipoProducto}`;
+            card.addEventListener('click', () => this._seleccionarCategoria(cat));
+
+            const imagenSrc = cat.imagen || './resources/img/logo_cafe.png';
+
+            card.innerHTML = `
+                <div slot="titulo" class="cat-imagen-box">
+                    <img 
+                        src="${imagenSrc}" 
+                        alt="${cat.nombre}" 
+                        class="cat-imagen"
+                        id="imgCat-${cat.idTipoProducto}">
+                </div>
+
+                <div slot="contenido" class="cat-nombre-box">
+                    <span class="cat-nombre" id="nombreCat-${cat.idTipoProducto}">${cat.nombre}</span>
+                </div>
+
+                <div slot="pie" class="cat-pie">
+                    <span>Explorar</span>
+                    <span>→</span>
+                </div>
+            `;
+
+            grid.appendChild(card);
+        });
     }
 }
 

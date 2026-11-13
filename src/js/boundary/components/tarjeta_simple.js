@@ -1,5 +1,3 @@
-import { html, render } from '../../lib/lit-html.js';
-
 class TarjetaSimple extends HTMLElement {
     constructor() {
         super();
@@ -10,8 +8,8 @@ class TarjetaSimple extends HTMLElement {
         this._dibujar();
     }
 
-    _template() {
-        return html`
+    _dibujar() {
+        this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/tarjeta.css">
             <div class="header">
                 <slot name="titulo">Agregue un título</slot>
@@ -23,10 +21,6 @@ class TarjetaSimple extends HTMLElement {
                 <slot name="pie">Agregue un pie</slot>
             </div>
         `;
-    }
-
-    _dibujar() {
-        render(this._template(), this._root);
     }
 }
 

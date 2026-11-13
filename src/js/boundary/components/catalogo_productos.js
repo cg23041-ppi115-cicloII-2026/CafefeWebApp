@@ -1,4 +1,3 @@
-import { html, render } from '../../lib/lit-html.js';
 import './tarjeta_simple.js';
 
 class CatalogoProductos extends HTMLElement {
@@ -120,99 +119,108 @@ class CatalogoProductos extends HTMLElement {
         }));
     }
 
-    _template() {
+    _dibujar() {
         const subcategorias = this._obtenerSubcategorias();
         const productosVisibles = this._obtenerProductosFiltrados();
 
-        return html`
+        this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/catalogo_productos.css">
             <div class="catalogo-layout" id="catalogoLayout">
-                
                 <aside class="sidebar-categorias" id="sidebarCategorias">
                     <h2 class="sidebar-titulo">Categorías</h2>
-                    <ul class="sidebar-lista" id="listaSidebar">
-                        ${this._categorias.map(cat => html`
-                            <li>
-                                <button 
-                                    type="button"
-                                    class="sidebar-btn ${cat.idTipoProducto === this._categoriaActivaId ? 'activa' : ''}"
-                                    id="btnCat-${cat.idTipoProducto}"
-                                    @click=${() => this._cambiarCategoria(cat.idTipoProducto)}>
-                                    ${cat.nombre}
-                                </button>
-                            </li>
-                        `)}
-                    </ul>
+                    <ul class="sidebar-lista" id="listaSidebar"></ul>
                 </aside>
 
                 <main class="catalogo-principal" id="catalogoPrincipal">
-                    <div class="barra-superior-catalogo">
-                        <div class="tabs-subcategorias" id="tabsSubcategorias">
-                            ${subcategorias.map(sub => html`
-                                <button 
-                                    type="button"
-                                    class="tab-btn ${sub === this._subcategoriaActiva ? 'activa' : ''}"
-                                    id="tabSub-${sub}"
-                                    @click=${() => this._cambiarSubcategoria(sub)}>
-                                    ${sub}
-                                </button>
-                            `)}
-                        </div>
-
-                        ${!this._modoLectura && this._cantidadCarrito > 0 ? html`
-                            <button 
-                                type="button" 
-                                class="btn-guardar-orden" 
-                                id="btnGuardarOrden"
-                                @click=${() => this._emitirVerOrden()}>
-                                Guardar (${this._cantidadCarrito})
-                            </button>
-                        ` : ''}
+                    <div class="barra-superior-catalogo" id="barraSuperior">
+                        <div class="tabs-subcategorias" id="tabsSubcategorias"></div>
                     </div>
-
-                    <div class="productos-grid" id="gridProductos">
-                        ${productosVisibles.length > 0
-                            ? productosVisibles.map(prod => html`
-                                <tarjeta-simple 
-                                    id="cardProd-${prod.idProducto}"
-                                    @click=${() => this._emitirSeleccionProducto(prod)}>
-                                    
-                                    <div slot="titulo" class="prod-img-wrap">
-                                        <img 
-                                            src="${prod.imagen || './resources/img/default_cafe.png'}" 
-                                            alt="${prod.nombre}" 
-                                            class="prod-img">
-                                    </div>
-
-                                    <div slot="contenido" class="prod-info">
-                                        <h3 class="prod-nombre">${prod.nombre}</h3>
-                                        <p class="prod-desc">${prod.comentarios || ''}</p>
-                                    </div>
-
-                                    <div slot="pie" class="prod-footer">
-                                        <span class="prod-precio">$${Number(prod.precioSugerido || 0).toFixed(2)}</span>
-                                        ${!this._modoLectura ? html`
-                                            <button 
-                                                type="button" 
-                                                class="btn-agregar-card"
-                                                id="btnAdd-${prod.idProducto}"
-                                                @click=${(e) => this._emitirAgregarRapido(e, prod)}>
-                                                Agregar
-                                            </button>
-                                        ` : ''}
-                                    </div>
-                                </tarjeta-simple>
-                            `)
-                            : html`<p class="estado-vacio">No hay productos en esta sección.</p>`
-                        }
-                    </div>
+                    <div class="productos-grid" id="gridProductos"></div>
                 </main>
             </div>
         `;
-    }
 
-    _dibujar() {
-        render(this._template(), this._root);
+        // 1. Botones de categorías en barra lateral
+        const listaSidebar = this._root.getElementById('listaSidebar');
+        this._categorias.forEach(cat => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `sidebar-btn ${cat.idTipoProducto === this._categoriaActivaId ? 'activa' : ''}`;
+            btn.id = `btnCat-${cat.idTipoProducto}`;
+            btn.textContent = cat.nombre;
+            btn.addEventListener('click', () => this._cambiarCategoria(cat.idTipoProducto));
+            li.appendChild(btn);
+            listaSidebar.appendChild(li);
+        });
+
+        // 2. Pestañas de subcategorías
+        const tabsContainer = this._root.getElementById('tabsSubcategorias');
+        subcategorias.forEach(sub => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `tab-btn ${sub === this._subcategoriaActiva ? 'activa' : ''}`;
+            btn.id = `tabSub-${sub}`;
+            btn.textContent = sub;
+            btn.addEventListener('click', () => this._cambiarSubcategoria(sub));
+            tabsContainer.appendChild(btn);
+        });
+
+        // 3. Botón Guardar / Terminar Orden (solo aparece cuando cantidadCarrito > 0)
+        if (!this._modoLectura && this._cantidadCarrito > 0) {
+            const barraSuperior = this._root.getElementById('barraSuperior');
+            const btnGuardar = document.createElement('button');
+            btnGuardar.type = 'button';
+            btnGuardar.className = 'btn-guardar-orden';
+            btnGuardar.id = 'btnGuardarOrden';
+            btnGuardar.textContent = `Guardar (${this._cantidadCarrito})`;
+            btnGuardar.addEventListener('click', () => this._emitirVerOrden());
+            barraSuperior.appendChild(btnGuardar);
+        }
+
+        // 4. Tarjetas de productos en el grid
+        const gridProductos = this._root.getElementById('gridProductos');
+        if (productosVisibles.length === 0) {
+            const vacio = document.createElement('p');
+            vacio.className = 'estado-vacio';
+            vacio.textContent = 'No hay productos en esta sección.';
+            gridProductos.appendChild(vacio);
+            return;
+        }
+
+        productosVisibles.forEach(prod => {
+            const card = document.createElement('tarjeta-simple');
+            card.id = `cardProd-${prod.idProducto}`;
+            card.addEventListener('click', () => this._emitirSeleccionProducto(prod));
+
+            const precioFormateado = Number(prod.precioSugerido || 0).toFixed(2);
+            const imagenSrc = prod.imagen || './resources/img/logo_cafe.png';
+
+            card.innerHTML = `
+                <div slot="titulo" class="prod-img-wrap">
+                    <img src="${imagenSrc}" alt="${prod.nombre}" class="prod-img">
+                </div>
+                <div slot="contenido" class="prod-info">
+                    <h3 class="prod-nombre">${prod.nombre}</h3>
+                    <p class="prod-desc">${prod.comentarios || ''}</p>
+                </div>
+                <div slot="pie" class="prod-footer">
+                    <span class="prod-precio">$${precioFormateado}</span>
+                    ${!this._modoLectura ? `
+                        <button type="button" class="btn-agregar-card" id="btnAdd-${prod.idProducto}">
+                            Agregar
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            if (!this._modoLectura) {
+                const btnAdd = card.querySelector(`#btnAdd-${prod.idProducto}`);
+                btnAdd.addEventListener('click', (e) => this._emitirAgregarRapido(e, prod));
+            }
+
+            gridProductos.appendChild(card);
+        });
     }
 }
 

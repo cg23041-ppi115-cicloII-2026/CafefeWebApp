@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafefe | Mi Pedido</title>
+    <link rel="stylesheet" href="./resources/estilos/index.css">
+</head>
+<body>
+    <div class="layout-grid">
+        <header class="header-cafefe">
+            <div class="marca-box">
+                <img src="./resources/img/logo_cafe.png" alt="Logo Cafefe" class="logo-img">
+                <span class="marca-nombre">Cafefe</span>
+            </div>
+            <nav class="nav-links">
+                <a href="./index.html">Inicio</a>
+                <a href="./pedido.html" class="activo">Hacer Pedido</a>
+            </nav>
+        </header>
+
+        <main>
+            <pedido-model></pedido-model>
+        </main>
+
+        <footer class="footer-cafefe">
+            <p>© 2026 Cafefe &nbsp;·&nbsp; Pedido en Línea &nbsp;·&nbsp; Pago al recoger en local</p>
+        </footer>
+    </div>
+
+    <script type="module" src="./js/boundary/pedido_model.js"></script>
+</body>
+</html>

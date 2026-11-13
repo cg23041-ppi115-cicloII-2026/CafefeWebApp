@@ -1,4 +1,4 @@
-import TarjetTipoProducto from "./componentes/tarjeta_tipo_producto.js";
+import TarjetaTipoProducto from "./components/tarjeta_tipo_producto.js";
 import TipoProductoDAO from "../control/tipo_producto_dao.js";
 
 class TipoProductoModel extends HTMLElement {
@@ -11,10 +11,12 @@ class TipoProductoModel extends HTMLElement {
 
     connectedCallback() {
         this.tipoProductoDAO.findRange(0, 50).then(resp => {
-            this.registros = resp.datos;
+            this.registros = resp.datos || [];
+            this.root.innerHTML = "";
+
             this.registros.forEach(tipoProducto => {
-                let tarjeta = new TarjetTipoProducto();
-                tarjeta.tipoProducto = tipoProducto;
+                let tarjeta = new TarjetaTipoProducto();
+                tarjeta.datos = tipoProducto; // Llama al setter y dispara _dibujar()
                 this.root.appendChild(tarjeta);
             });
         }).catch(err => {

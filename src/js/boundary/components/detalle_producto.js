@@ -1,4 +1,4 @@
-import { html, render } from '../../../lib/lit-html.js';
+import { html, render } from '../../lib/lit-html.js';
 
 class DetalleProducto extends HTMLElement {
     constructor() {
@@ -86,7 +86,7 @@ class DetalleProducto extends HTMLElement {
         const total = this._calcularTotal().toFixed(2);
 
         return html`
-            <link rel="stylesheet" href="./resources/estilos/detalle_producto.css">
+            <link rel="stylesheet" href="./resources/estilos/components/detalle_producto.css">
             <section class="detalle-contenedor" id="detalleProductoContenedor">
                 <div class="detalle-imagen-box">
                     <img 

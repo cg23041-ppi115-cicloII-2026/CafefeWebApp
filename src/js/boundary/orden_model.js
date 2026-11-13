@@ -52,7 +52,7 @@ class OrdenModel extends HTMLElement {
     }
 
     _cargarCatalogoProductos() {
-        return this._productoDAO.findRange(0, 200)
+        return this._productoDAO.findRange(0, 50)
             .then(res => {
                 const lista = Array.isArray(res.datos) ? res.datos : [];
                 this._mapaProductos.clear();
@@ -113,11 +113,21 @@ class OrdenModel extends HTMLElement {
                     return;
                 }
 
-                const productos = itemsCrudos.map(item => ({
-                    ...item,
-                    nombreProducto: this._mapaProductos.get(String(item.idProducto)) || `Producto #${item.idProducto}`,
-                    listo: false
-                }));
+                //extrae el UUID y nombre aunque idProducto venga como objeto JSON
+                const productos = itemsCrudos.map(item => {
+                    const esObjeto = typeof item.idProducto === "object" && item.idProducto !== null;
+                    const idProd = esObjeto ? item.idProducto.idProducto : item.idProducto;
+                    const nombre = (esObjeto && item.idProducto.nombre)
+                        || this._mapaProductos.get(String(idProd))
+                        || `Producto #${String(idProd).slice(-5).toUpperCase()}`;
+
+                    return {
+                        ...item,
+                        idProducto: idProd,
+                        nombreProducto: nombre,
+                        listo: false
+                    };
+                });
 
                 this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
                 this._enProceso = { orden, productos };

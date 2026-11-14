@@ -3,7 +3,8 @@ class DetalleProducto extends HTMLElement {
         super();
         this._root = this.attachShadow({ mode: 'open' });
         this._producto = null;
-        this._tamanoSeleccionado = 'M';
+        this._gruposCaracteristicas = [];
+        this._selecciones = {};
         this._cantidad = 1;
         this._soloVista = false;
     }
@@ -22,13 +23,26 @@ class DetalleProducto extends HTMLElement {
     set producto(valor) {
         this._producto = valor || null;
         this._cantidad = 1;
-        const tamanos = this._producto?.tamanos || ['S', 'M', 'L'];
-        this._tamanoSeleccionado = tamanos[0] || 'M';
         this._dibujar();
     }
 
     get producto() {
         return this._producto;
+    }
+
+    set gruposCaracteristicas(grupos) {
+        this._gruposCaracteristicas = Array.isArray(grupos) ? grupos : [];
+        this._selecciones = {};
+        this._gruposCaracteristicas.forEach(grupo => {
+            if (grupo.opciones && grupo.opciones.length > 0) {
+                this._selecciones[grupo.nombre] = grupo.opciones[0].etiqueta;
+            }
+        });
+        this._dibujar();
+    }
+
+    get gruposCaracteristicas() {
+        return this._gruposCaracteristicas;
     }
 
     connectedCallback() {
@@ -43,14 +57,15 @@ class DetalleProducto extends HTMLElement {
         }
     }
 
-    _seleccionarTamano(tam) {
-        this._tamanoSeleccionado = tam;
-        this._dibujar();
-    }
-
     _calcularTotal() {
         if (!this._producto) return 0;
         return Number(this._producto.precioSugerido || 0) * this._cantidad;
+    }
+
+    _construirResumenPersonalizacion() {
+        const entradas = Object.entries(this._selecciones);
+        if (entradas.length === 0) return 'Estándar';
+        return entradas.map(([grupo, valor]) => `${grupo}: ${valor}`).join(' | ');
     }
 
     _agregarAlCarrito() {
@@ -58,7 +73,7 @@ class DetalleProducto extends HTMLElement {
         this.dispatchEvent(new CustomEvent('agregar-carrito', {
             detail: {
                 producto: this._producto,
-                tamano: this._tamanoSeleccionado,
+                personalizacion: this._construirResumenPersonalizacion(),
                 cantidad: this._cantidad,
                 subtotal: this._calcularTotal()
             },
@@ -81,7 +96,6 @@ class DetalleProducto extends HTMLElement {
         }
 
         const p = this._producto;
-        const tamanos = p.tamanos && p.tamanos.length > 0 ? p.tamanos : ['S', 'M', 'L'];
         const total = this._calcularTotal().toFixed(2);
         const precioUnitario = Number(p.precioSugerido || 0).toFixed(2);
         const imagenSrc = p.imagen || './resources/img/logo_cafe.png';
@@ -120,31 +134,44 @@ class DetalleProducto extends HTMLElement {
             return;
         }
 
-        // Controles de tamaño y cantidad
         const controlesDiv = document.createElement('div');
         controlesDiv.className = 'detalle-controles';
 
-        // Grupo tamaños
-        const grupoTamano = document.createElement('div');
-        grupoTamano.className = 'control-grupo';
-        grupoTamano.innerHTML = `<span class="control-label">Tamaño:</span>`;
+        // Genera un ComboBox (<select>) por cada tipo de característica del producto en la BD
+        this._gruposCaracteristicas.forEach((grupo, index) => {
+            const grupoDiv = document.createElement('div');
+            grupoDiv.className = 'control-grupo';
 
-        const opcionesTamano = document.createElement('div');
-        opcionesTamano.className = 'tamanos-opciones';
+            const label = document.createElement('label');
+            label.className = 'control-label';
+            label.setAttribute('for', `selectCar-${index}`);
+            label.textContent = `${grupo.nombre}:`;
 
-        tamanos.forEach(tam => {
-            const btnTam = document.createElement('button');
-            btnTam.type = 'button';
-            btnTam.className = `btn-tamano ${this._tamanoSeleccionado === tam ? 'activo' : ''}`;
-            btnTam.id = `btnTam-${tam}`;
-            btnTam.textContent = tam;
-            btnTam.addEventListener('click', () => this._seleccionarTamano(tam));
-            opcionesTamano.appendChild(btnTam);
+            const select = document.createElement('select');
+            select.id = `selectCar-${index}`;
+            select.className = 'select-caracteristica';
+            select.style.cssText = 'padding: 0.55rem 0.9rem; border: 2px solid #4B3621; border-radius: 10px; background: #FFFFFF; color: #4B3621; font-weight: 600; font-size: 0.95rem; min-width: 190px; cursor: pointer;';
+
+            grupo.opciones.forEach(op => {
+                const option = document.createElement('option');
+                option.value = op.etiqueta;
+                option.textContent = op.etiqueta;
+                if (this._selecciones[grupo.nombre] === op.etiqueta) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', (e) => {
+                this._selecciones[grupo.nombre] = e.target.value;
+            });
+
+            grupoDiv.appendChild(label);
+            grupoDiv.appendChild(select);
+            controlesDiv.appendChild(grupoDiv);
         });
 
-        grupoTamano.appendChild(opcionesTamano);
-
-        // Grupo cantidad
+        // Selector de cantidad
         const grupoCantidad = document.createElement('div');
         grupoCantidad.className = 'control-grupo';
         grupoCantidad.innerHTML = `
@@ -155,12 +182,10 @@ class DetalleProducto extends HTMLElement {
                 <button type="button" class="btn-cant" id="btnMas">+</button>
             </div>
         `;
-
-        controlesDiv.appendChild(grupoTamano);
         controlesDiv.appendChild(grupoCantidad);
         detalleInfo.appendChild(controlesDiv);
 
-        // Botones de acción (Agregar al carrito y Regresar)
+        // Botones de acción
         const accionesDiv = document.createElement('div');
         accionesDiv.className = 'detalle-acciones';
         accionesDiv.innerHTML = `
@@ -173,7 +198,6 @@ class DetalleProducto extends HTMLElement {
         `;
         detalleInfo.appendChild(accionesDiv);
 
-        // Listeners nativos
         this._root.getElementById('btnMenos').addEventListener('click', () => this._cambiarCantidad(-1));
         this._root.getElementById('btnMas').addEventListener('click', () => this._cambiarCantidad(1));
         this._root.getElementById('btnAgregarCarrito').addEventListener('click', () => this._agregarAlCarrito());

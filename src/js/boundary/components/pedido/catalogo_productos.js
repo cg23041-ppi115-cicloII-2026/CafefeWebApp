@@ -1,4 +1,4 @@
-import './tarjeta_simple.js';
+import '../tarjeta_simple.js';
 
 class CatalogoProductos extends HTMLElement {
     constructor() {
@@ -10,6 +10,7 @@ class CatalogoProductos extends HTMLElement {
         this._subcategoriaActiva = 'Todas';
         this._cantidadCarrito = 0;
         this._modoLectura = false;
+        this._estructuraCreada = false;
     }
 
     static get observedAttributes() {
@@ -68,12 +69,14 @@ class CatalogoProductos extends HTMLElement {
     }
 
     _cambiarCategoria(idCategoria) {
+        if (this._categoriaActivaId === idCategoria) return;
         this._categoriaActivaId = idCategoria;
         this._subcategoriaActiva = 'Todas';
         this._dibujar();
     }
 
     _cambiarSubcategoria(sub) {
+        if (this._subcategoriaActiva === sub) return;
         this._subcategoriaActiva = sub;
         this._dibujar();
     }
@@ -85,27 +88,23 @@ class CatalogoProductos extends HTMLElement {
 
     _obtenerSubcategorias() {
         const prodsCat = this._obtenerProductosPorCategoria();
-        const subs = new Set(prodsCat.map(p => p.subcategoria).filter(Boolean));
+        const subs = new Set(
+            prodsCat
+                .map(p => (p.subcategoria || '').trim())
+                .filter(s => s && s.toLowerCase() !== 'todas' && s.toLowerCase() !== 'todos')
+        );
         return ['Todas', ...Array.from(subs)];
     }
 
     _obtenerProductosFiltrados() {
         const prodsCat = this._obtenerProductosPorCategoria();
         if (this._subcategoriaActiva === 'Todas') return prodsCat;
-        return prodsCat.filter(p => p.subcategoria === this._subcategoriaActiva);
+        return prodsCat.filter(p => (p.subcategoria || '').trim() === this._subcategoriaActiva);
     }
 
-    _emitirSeleccionProducto(producto) {
+    _emitirSeleccionProducto(e, producto) {
+        if (e) e.stopPropagation();
         this.dispatchEvent(new CustomEvent('seleccionar-producto', {
-            detail: producto,
-            bubbles: true,
-            composed: true
-        }));
-    }
-
-    _emitirAgregarRapido(e, producto) {
-        e.stopPropagation();
-        this.dispatchEvent(new CustomEvent('agregar-rapido', {
             detail: producto,
             bubbles: true,
             composed: true
@@ -119,10 +118,8 @@ class CatalogoProductos extends HTMLElement {
         }));
     }
 
-    _dibujar() {
-        const subcategorias = this._obtenerSubcategorias();
-        const productosVisibles = this._obtenerProductosFiltrados();
-
+    _crearEstructuraBase() {
+        if (this._estructuraCreada) return;
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/catalogo_productos.css">
             <div class="catalogo-layout" id="catalogoLayout">
@@ -134,14 +131,24 @@ class CatalogoProductos extends HTMLElement {
                 <main class="catalogo-principal" id="catalogoPrincipal">
                     <div class="barra-superior-catalogo" id="barraSuperior">
                         <div class="tabs-subcategorias" id="tabsSubcategorias"></div>
+                        <div id="contenedorBtnGuardar"></div>
                     </div>
                     <div class="productos-grid" id="gridProductos"></div>
                 </main>
             </div>
         `;
+        this._estructuraCreada = true;
+    }
 
-        // 1. Botones de categorías en barra lateral
+    _dibujar() {
+        this._crearEstructuraBase();
+
+        const subcategorias = this._obtenerSubcategorias();
+        const productosVisibles = this._obtenerProductosFiltrados();
+
+        // 1. Actualizar solo la lista lateral sin recargar el CSS
         const listaSidebar = this._root.getElementById('listaSidebar');
+        listaSidebar.innerHTML = '';
         this._categorias.forEach(cat => {
             const li = document.createElement('li');
             const btn = document.createElement('button');
@@ -154,8 +161,9 @@ class CatalogoProductos extends HTMLElement {
             listaSidebar.appendChild(li);
         });
 
-        // 2. Pestañas de subcategorías
+        // 2. Actualizar las pestañas superiores (Todas + subcategorías reales de esa categoría)
         const tabsContainer = this._root.getElementById('tabsSubcategorias');
+        tabsContainer.innerHTML = '';
         subcategorias.forEach(sub => {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -166,20 +174,23 @@ class CatalogoProductos extends HTMLElement {
             tabsContainer.appendChild(btn);
         });
 
-        // 3. Botón Guardar / Terminar Orden (solo aparece cuando cantidadCarrito > 0)
+        // 3. Botón Guardar / Terminar Orden
+        const contenedorGuardar = this._root.getElementById('contenedorBtnGuardar');
+        contenedorGuardar.innerHTML = '';
         if (!this._modoLectura && this._cantidadCarrito > 0) {
-            const barraSuperior = this._root.getElementById('barraSuperior');
             const btnGuardar = document.createElement('button');
             btnGuardar.type = 'button';
             btnGuardar.className = 'btn-guardar-orden';
             btnGuardar.id = 'btnGuardarOrden';
             btnGuardar.textContent = `Guardar (${this._cantidadCarrito})`;
             btnGuardar.addEventListener('click', () => this._emitirVerOrden());
-            barraSuperior.appendChild(btnGuardar);
+            contenedorGuardar.appendChild(btnGuardar);
         }
 
-        // 4. Tarjetas de productos en el grid
+        // 4. Actualizar tarjetas de productos
         const gridProductos = this._root.getElementById('gridProductos');
+        gridProductos.innerHTML = '';
+
         if (productosVisibles.length === 0) {
             const vacio = document.createElement('p');
             vacio.className = 'estado-vacio';
@@ -191,7 +202,7 @@ class CatalogoProductos extends HTMLElement {
         productosVisibles.forEach(prod => {
             const card = document.createElement('tarjeta-simple');
             card.id = `cardProd-${prod.idProducto}`;
-            card.addEventListener('click', () => this._emitirSeleccionProducto(prod));
+            card.style.cursor = 'pointer';
 
             const precioFormateado = Number(prod.precioSugerido || 0).toFixed(2);
             const imagenSrc = prod.imagen || './resources/img/logo_cafe.png';
@@ -214,9 +225,11 @@ class CatalogoProductos extends HTMLElement {
                 </div>
             `;
 
+            card.addEventListener('click', (e) => this._emitirSeleccionProducto(e, prod));
+
             if (!this._modoLectura) {
                 const btnAdd = card.querySelector(`#btnAdd-${prod.idProducto}`);
-                btnAdd.addEventListener('click', (e) => this._emitirAgregarRapido(e, prod));
+                btnAdd.addEventListener('click', (e) => this._emitirSeleccionProducto(e, prod));
             }
 
             gridProductos.appendChild(card);

@@ -1,9 +1,7 @@
 :host {
     display: block;
-    --coffee-brown: #4B3621;
-    --apple-red: #C8322B;
-    --vanilla-beige: #EDE0C8;
-    --blanco: #FFFFFF;
+    font-family: var(--fuente-principal, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    color: var(--texto-principal, #4B3621);
 }
 
 .catalogo-layout {
@@ -13,20 +11,21 @@
     padding: 1.5rem;
     max-width: 1300px;
     margin: 0 auto;
-    font-family: system-ui, -apple-system, sans-serif;
+    box-sizing: border-box;
 }
 
 .sidebar-categorias {
-    background-color: var(--blanco);
-    border: 2px solid var(--vanilla-beige);
-    border-radius: 14px;
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    border: 1px solid var(--borde-suave, #d8c6a8);
+    border-radius: var(--radio-panel, 14px);
+    box-shadow: var(--sombra-suave, 0 2px 6px rgba(75, 54, 33, 0.1));
     padding: 1.25rem;
     height: fit-content;
 }
 
 .sidebar-titulo {
     margin: 0 0 1rem 0;
-    color: var(--coffee-brown);
+    color: var(--texto-principal, #4B3621);
     font-size: 1.25rem;
 }
 
@@ -44,22 +43,23 @@
     text-align: left;
     padding: 0.75rem 1rem;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radio-tarjeta, 10px);
     background: transparent;
-    color: var(--coffee-brown);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
     font-weight: 600;
     font-size: 1rem;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background-color 0.2s ease;
 }
 
 .sidebar-btn:hover {
-    background-color: rgba(237, 224, 200, 0.5);
+    background-color: var(--bg-contenedor, #f6efe2);
 }
 
 .sidebar-btn.activa {
-    background-color: var(--vanilla-beige);
-    border-left: 4px solid var(--coffee-brown);
+    background-color: var(--vanilla-beige, #EDE0C8);
+    border-left: 4px solid var(--borde-activo, #4B3621);
     font-weight: 700;
 }
 
@@ -80,29 +80,42 @@
 
 .tab-btn {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--coffee-brown);
+    border: 1px solid var(--borde-activo, #4B3621);
     border-radius: 999px;
-    background-color: var(--blanco);
-    color: var(--coffee-brown);
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.tab-btn:hover {
+    background-color: var(--bg-contenedor, #f6efe2);
 }
 
 .tab-btn.activa {
-    background-color: var(--coffee-brown);
-    color: var(--vanilla-beige);
+    background-color: var(--color-primario, #4B3621);
+    color: var(--texto-claro, #FFFFFF);
 }
 
 .btn-guardar-orden {
     padding: 0.65rem 1.4rem;
     border: none;
     border-radius: 999px;
-    background-color: var(--apple-red);
-    color: var(--blanco);
+    background-color: var(--color-acento, #C8322B);
+    color: var(--texto-claro, #FFFFFF);
+    font-family: inherit;
     font-weight: 700;
     font-size: 1rem;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(200, 50, 43, 0.3);
+    box-shadow: var(--sombra-elevada, 0 4px 12px rgba(75, 54, 33, 0.16));
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-guardar-orden:hover {
+    background-color: var(--color-acento-hover, #a82822);
+    transform: translateY(-1px);
 }
 
 .productos-grid {
@@ -113,9 +126,9 @@
 
 .prod-img-wrap {
     height: 135px;
-    border-radius: 8px;
+    border-radius: var(--radio-tarjeta, 10px);
     overflow: hidden;
-    background-color: var(--vanilla-beige);
+    background-color: var(--vanilla-beige, #EDE0C8);
 }
 
 .prod-img {
@@ -127,13 +140,13 @@
 .prod-nombre {
     margin: 0 0 0.35rem 0;
     font-size: 1.05rem;
-    color: var(--coffee-brown);
+    color: var(--texto-principal, #4B3621);
 }
 
 .prod-desc {
     margin: 0;
     font-size: 0.85rem;
-    color: #6b533b;
+    color: var(--texto-secundario, #6e5740);
 }
 
 .prod-footer {
@@ -146,17 +159,23 @@
 .prod-precio {
     font-size: 1.05rem;
     font-weight: 800;
-    color: var(--coffee-brown);
+    color: var(--texto-principal, #4B3621);
 }
 
 .btn-agregar-card {
     padding: 0.4rem 0.9rem;
     border: none;
-    border-radius: 8px;
-    background-color: var(--apple-red);
-    color: var(--blanco);
+    border-radius: var(--radio-tarjeta, 10px);
+    background-color: var(--color-acento, #C8322B);
+    color: var(--texto-claro, #FFFFFF);
+    font-family: inherit;
     font-weight: 700;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-agregar-card:hover {
+    background-color: var(--color-acento-hover, #a82822);
 }
 
 @media (max-width: 768px) {

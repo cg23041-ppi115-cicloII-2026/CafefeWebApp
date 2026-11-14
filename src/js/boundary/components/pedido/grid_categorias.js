@@ -1,4 +1,4 @@
-import './tarjeta_simple.js';
+import '../tarjeta_simple.js';
 
 class GridCategorias extends HTMLElement {
     constructor() {

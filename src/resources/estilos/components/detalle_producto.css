@@ -1,9 +1,7 @@
 :host {
     display: block;
-    --coffee-brown: #4B3621;
-    --apple-red: #C8322B;
-    --vanilla-beige: #EDE0C8;
-    --blanco: #FFFFFF;
+    font-family: var(--fuente-principal, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    color: var(--texto-principal, #4B3621);
 }
 
 .detalle-contenedor {
@@ -13,17 +11,18 @@
     max-width: 1000px;
     margin: 2rem auto;
     padding: 2rem;
-    background-color: var(--blanco);
-    border: 2px solid var(--vanilla-beige);
-    border-radius: 18px;
-    font-family: system-ui, -apple-system, sans-serif;
-    color: var(--coffee-brown);
+    box-sizing: border-box;
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    border: 1px solid var(--borde-suave, #d8c6a8);
+    border-radius: var(--radio-panel, 14px);
+    box-shadow: var(--sombra-elevada, 0 4px 12px rgba(75, 54, 33, 0.16));
+    color: var(--texto-principal, #4B3621);
 }
 
 .detalle-imagen-box {
-    border-radius: 14px;
+    border-radius: var(--radio-panel, 14px);
     overflow: hidden;
-    background-color: var(--vanilla-beige);
+    background-color: var(--vanilla-beige, #EDE0C8);
     min-height: 300px;
 }
 
@@ -37,23 +36,26 @@
 .detalle-nombre {
     margin: 0 0 0.5rem 0;
     font-size: 2rem;
+    color: var(--texto-principal, #4B3621);
 }
 
 .detalle-categoria {
     margin: 0 0 1rem 0;
     font-size: 0.95rem;
-    color: #6b533b;
+    color: var(--texto-secundario, #6e5740);
 }
 
 .detalle-descripcion {
     margin: 0 0 1.25rem 0;
     line-height: 1.5;
+    color: var(--texto-principal, #4B3621);
 }
 
 .detalle-precio {
     font-size: 1.75rem;
     font-weight: 800;
     margin-bottom: 1.5rem;
+    color: var(--texto-principal, #4B3621);
 }
 
 .detalle-controles {
@@ -67,10 +69,32 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
 }
 
 .control-label {
     font-weight: 700;
+    color: var(--texto-principal, #4B3621);
+}
+
+.select-caracteristica {
+    padding: 0.55rem 0.9rem;
+    border: 2px solid var(--borde-activo, #4B3621);
+    border-radius: var(--radio-tarjeta, 10px);
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    min-width: 190px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.select-caracteristica:hover,
+.select-caracteristica:focus {
+    background-color: var(--bg-contenedor, #f6efe2);
+    outline: none;
 }
 
 .tamanos-opciones {
@@ -81,41 +105,51 @@
 .btn-tamano {
     width: 42px;
     height: 42px;
-    border: 2px solid var(--coffee-brown);
-    border-radius: 10px;
-    background: var(--blanco);
-    color: var(--coffee-brown);
+    border: 2px solid var(--borde-activo, #4B3621);
+    border-radius: var(--radio-tarjeta, 10px);
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
     font-weight: 700;
     cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .btn-tamano.activo {
-    background-color: var(--coffee-brown);
-    color: var(--vanilla-beige);
+    background-color: var(--color-primario, #4B3621);
+    color: var(--texto-claro, #FFFFFF);
 }
 
 .contador-box {
     display: flex;
     align-items: center;
-    border: 2px solid var(--coffee-brown);
-    border-radius: 10px;
+    border: 2px solid var(--borde-activo, #4B3621);
+    border-radius: var(--radio-tarjeta, 10px);
     overflow: hidden;
+    background-color: var(--bg-tarjeta, #FFFFFF);
 }
 
 .btn-cant {
     width: 36px;
     height: 36px;
     border: none;
-    background-color: var(--vanilla-beige);
-    color: var(--coffee-brown);
+    background-color: var(--vanilla-beige, #EDE0C8);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
     font-size: 1.2rem;
     font-weight: 700;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-cant:hover {
+    background-color: var(--borde-suave, #d8c6a8);
 }
 
 .valor-cant {
     padding: 0 1rem;
     font-weight: 700;
+    color: var(--texto-principal, #4B3621);
 }
 
 .detalle-acciones {
@@ -128,22 +162,36 @@
     padding: 0.95rem;
     border: none;
     border-radius: 999px;
-    background-color: var(--apple-red);
-    color: var(--blanco);
+    background-color: var(--color-acento, #C8322B);
+    color: var(--texto-claro, #FFFFFF);
+    font-family: inherit;
     font-size: 1.05rem;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: var(--sombra-suave, 0 2px 6px rgba(75, 54, 33, 0.1));
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-agregar-carrito:hover {
+    background-color: var(--color-acento-hover, #a82822);
+    transform: translateY(-1px);
 }
 
 .btn-regresar {
     padding: 0.85rem;
-    border: 2px solid var(--coffee-brown);
+    border: 2px solid var(--borde-activo, #4B3621);
     border-radius: 999px;
     background-color: transparent;
-    color: var(--coffee-brown);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-regresar:hover {
+    background-color: var(--bg-contenedor, #f6efe2);
 }
 
 @media (max-width: 768px) {

@@ -118,7 +118,7 @@ class ResumenOrden extends HTMLElement {
                     <img src="${imagenSrc}" alt="${item.nombre}" class="item-img">
                     <div class="item-datos">
                         <h3 class="item-nombre">${item.nombre}</h3>
-                        <span class="item-meta">Tamaño: ${item.tamano || 'M'} · $${precioUnitario} c/u</span>
+                        <span class="item-meta">${item.personalizacion || 'Estándar'} · $${precioUnitario} c/u</span>
                         <div class="item-controles">
                             <button type="button" class="btn-mini btn-restar">-</button>
                             <span>${item.cantidad}</span>

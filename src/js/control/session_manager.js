@@ -32,7 +32,7 @@ class SessionManager {
         const uuidLimpio = (idEmpleadoIngresado || "").trim().toLowerCase();
 
         if (!nombreLimpio || !uuidLimpio) {
-            throw new Error("Ingresa tu nombre de empleado y tu identificador único (UUID).");
+            throw new Error("Debes ingresar tanto tu nombre como tu identificador único (UUID).");
         }
 
         const respEmpleados = await this.empleadoDAO.findRange(0, 50);
@@ -101,14 +101,14 @@ class SessionManager {
     }
 
     iniciarModoCliente(nombreCliente = "") {
-        const sesion = {
+        const sesionCliente = {
             modo: "CLIENTE",
             nombreCliente: (nombreCliente || "").trim(),
             vistaInicial: "PEDIDO",
             fechaLogin: new Date().toISOString()
         };
-        this.guardarSesion(sesion, false);
-        return sesion;
+        this.guardarSesion(sesionCliente, false);
+        return sesionCliente;
     }
 
     guardarSesion(sesion, persistente = false) {

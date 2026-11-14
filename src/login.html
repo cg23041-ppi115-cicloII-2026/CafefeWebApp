@@ -3,63 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cafefe | Acceso de Personal</title>
+    <title>Cafefe | Iniciar Sesión</title>
     <link rel="icon" type="image/png" href="./resources/img/logo_cafe.png">
     <link rel="stylesheet" href="./resources/estilos/index.css">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-    </style>
 </head>
 <body>
-    <login-cafefe id="componenteLogin" logo="./resources/img/logo_cafe.png"></login-cafefe>
+    <div class="layout-grid">
+        <header class="header-cafefe">
+            <div class="marca-box">
+                <img src="./resources/img/logo_cafe.png" alt="Logo Cafefe" class="logo-img">
+                <span class="marca-nombre">Cafefe</span>
+            </div>
+            <nav class="nav-links">
+                <a href="./index.html">Inicio</a>
+            </nav>
+        </header>
 
-    <script type="module">
-        import SessionManager from "./js/control/session_manager.js";
-        import "./js/boundary/components/login/login_cafefe.js";
+        <main>
+            <login-model></login-model>
+        </main>
 
-        const sessionManager = new SessionManager();
-        const componenteLogin = document.getElementById("componenteLogin");
+        <footer class="footer-cafefe">
+            <p>© 2026 Cafefe &nbsp;·&nbsp; Pedido en Línea &nbsp;·&nbsp; Pago al recoger en local</p>
+        </footer>
+    </div>
 
-        function redirigirSegunSesion(sesion) {
-            if (!sesion) return;
-
-            if (sesion.modo === "CLIENTE") {
-                window.location.href = "./pedido.html";
-                return;
-            }
-
-            switch (sesion.vistaInicial) {
-                case "BARISTA":
-                    window.location.href = "./barista.html";
-                    break;
-                case "CAJERO":
-                    window.location.href = "./caja.html";
-                    break;
-                case "GERENTE":
-                    window.location.href = "./pedido.html";
-                    break;
-                default:
-                    window.location.href = "./index.html";
-                    break;
-            }
-        }
-
-        // Si ya tiene una sesión activa guardada, redirigir directamente
-        const sesionActiva = sessionManager.obtenerSesion();
-        if (sesionActiva && sesionActiva.modo === "EMPLEADO") {
-            redirigirSegunSesion(sesionActiva);
-        }
-
-        componenteLogin.addEventListener("login-exitoso", (e) => {
-            redirigirSegunSesion(e.detail);
-        });
-
-        componenteLogin.addEventListener("acceso-cliente", (e) => {
-            redirigirSegunSesion(e.detail);
-        });
-    </script>
+    <script type="module" src="./js/boundary/login_model.js"></script>
 </body>
 </html>

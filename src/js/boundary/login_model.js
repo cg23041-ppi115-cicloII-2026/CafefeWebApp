@@ -1,54 +1,17 @@
 import './components/login/login_cafefe.js';
-import './components/mensaje_error.js';
-import './components/boton_instalar_pwa.js';
-import './components/cafefe_navbar.js';
 import SessionManager from '../control/session_manager.js';
 
 class LoginModel extends HTMLElement {
     constructor() {
         super();
         this.root = this.attachShadow({ mode: 'open' });
-
         this.sessionManager = new SessionManager();
-        this.cargando = false;
         this.sesionActual = null;
+        this._loginComp = null;
     }
 
-    async connectedCallback() {
-        this.sesionActual = this.sessionManager.obtenerSesion();
-
-        // Si un empleado ya tenía sesión guardada, redirigir directamente a su estación
-        if (this.sesionActual && this.sesionActual.modo === 'EMPLEADO') {
-            this._redirigirSegunSesion(this.sesionActual);
-            return;
-        }
-
+    connectedCallback() {
         this._dibujar();
-    }
-
-    _mostrarError(titulo, err, accionReintentar = null) {
-        const zona = this.root.querySelector('#zonaErrores');
-        if (!zona) return;
-        zona.innerHTML = '';
-
-        const alerta = document.createElement('mensaje-error');
-        alerta.titulo = titulo;
-        alerta.error = err;
-        alerta.reintentable = typeof accionReintentar === 'function';
-
-        if (accionReintentar) {
-            alerta.addEventListener('reintentar-operacion', () => {
-                this._limpiarError();
-                accionReintentar();
-            });
-        }
-
-        zona.appendChild(alerta);
-    }
-
-    _limpiarError() {
-        const zona = this.root.querySelector('#zonaErrores');
-        if (zona) zona.innerHTML = '';
     }
 
     _redirigirSegunSesion(sesion) {
@@ -69,59 +32,60 @@ class LoginModel extends HTMLElement {
             case 'BARISTA':
                 window.location.href = './orden.html';
                 break;
-            case 'COCINERO':
-                window.location.href = './orden.html';
-                break;
             case 'CAJERO':
-                window.location.href = './pago.html';
-                break;
-            case 'ADMINISTRADOR':
-                window.location.href = './pago.html';
-                break;
-            case 'MESERO':
-                window.location.href = './pago.html';
+                window.location.href = './caja.html';
                 break;
             case 'GERENTE':
             default:
-                window.location.href = './pago.html';
+                window.location.href = './pedido.html';
                 break;
         }
+    }
+
+    async _procesarLoginEmpleado({ nombre, idEmpleado, recordar }) {
+        if (!this._loginComp || this._loginComp.cargando) return;
+
+        this._loginComp.error = '';
+        this._loginComp.cargando = true;
+
+        try {
+            const sesion = await this.sessionManager.autenticarEmpleado(
+                nombre,
+                idEmpleado,
+                recordar
+            );
+            this.sesionActual = sesion;
+            this._redirigirSegunSesion(sesion);
+        } catch (err) {
+            this._loginComp.error = err?.message || 'No se pudieron validar las credenciales.';
+        } finally {
+            if (this._loginComp) {
+                this._loginComp.cargando = false;
+            }
+        }
+    }
+
+    _procesarAccesoCliente() {
+        const sesionCliente = this.sessionManager.iniciarModoCliente();
+        this.sesionActual = sesionCliente;
+        this._redirigirSegunSesion(sesionCliente);
     }
 
     _dibujar() {
         this.root.innerHTML = '';
 
-        const zonaErrores = document.createElement('div');
-        zonaErrores.id = 'zonaErrores';
-        this.root.appendChild(zonaErrores);
-
-        if (this.cargando) {
-            const p = document.createElement('p');
-            p.style.cssText = 'text-align:center; padding:3rem; color:#4B3621;';
-            p.textContent = 'Verificando credenciales...';
-            this.root.appendChild(p);
-            return;
-        }
-
         const loginComp = document.createElement('login-cafefe');
         loginComp.setAttribute('logo', this.getAttribute('logo') || './resources/img/logo_cafe.png');
 
-        loginComp.addEventListener('login-exitoso', (e) => {
-            this._limpiarError();
-            this.sesionActual = e.detail;
-            this._redirigirSegunSesion(this.sesionActual);
+        loginComp.addEventListener('intentar-login', (e) => {
+            this._procesarLoginEmpleado(e.detail);
         });
 
-        loginComp.addEventListener('acceso-cliente', (e) => {
-            this._limpiarError();
-            this.sesionActual = e.detail;
-            this._redirigirSegunSesion(this.sesionActual);
+        loginComp.addEventListener('acceso-cliente', () => {
+            this._procesarAccesoCliente();
         });
 
-        loginComp.addEventListener('login-error', (e) => {
-            this._mostrarError('Error de inicio de sesión', e.detail);
-        });
-
+        this._loginComp = loginComp;
         this.root.appendChild(loginComp);
     }
 }

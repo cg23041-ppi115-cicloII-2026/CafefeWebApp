@@ -1,229 +1,168 @@
-import SessionManager from "../../../control/session_manager.js";
-import "../mensaje_error.js";
-
 class LoginCafefe extends HTMLElement {
     constructor() {
         super();
-        this._root = this.attachShadow({ mode: "open" });
-        this._sessionManager = new SessionManager();
-        this._logoSrc = "./resources/img/logo_cafe.png";
+        this.root = this.attachShadow({ mode: "open" });
         this._cargando = false;
-        this._mostrarUuid = false;
-        this._estructuraCreada = false;
+        this._mensajeError = "";
     }
 
     static get observedAttributes() {
         return ["logo"];
     }
 
-    attributeChangedCallback(name, oldVal, newVal) {
-        if (name === "logo" && oldVal !== newVal && newVal) {
-            this._logoSrc = newVal;
-            this._actualizarLogos();
-        }
+    set cargando(valor) {
+        this._cargando = Boolean(valor);
+        this._actualizarEstadoBoton();
+    }
+
+    get cargando() {
+        return this._cargando;
+    }
+
+    set error(mensaje) {
+        this._mensajeError = mensaje || "";
+        this._renderizarAlerta();
     }
 
     connectedCallback() {
-        if (this.hasAttribute("logo")) {
-            this._logoSrc = this.getAttribute("logo");
-        }
         this._dibujar();
     }
 
-    _actualizarLogos() {
-        const watermark = this._root.getElementById("logoWatermark");
-        const insignia = this._root.getElementById("logoInsignia");
-        if (watermark) watermark.src = this._logoSrc;
-        if (insignia) insignia.src = this._logoSrc;
-    }
+    _renderizarAlerta() {
+        const alerta = this.root.querySelector("#alertaLogin");
+        if (!alerta) return;
 
-    _toggleVerUuid() {
-        this._mostrarUuid = !this._mostrarUuid;
-        const inputUuid = this._root.getElementById("inputIdEmpleado");
-        const btnVer = this._root.getElementById("btnToggleUuid");
-        if (inputUuid) {
-            inputUuid.type = this._mostrarUuid ? "text" : "password";
-        }
-        if (btnVer) {
-            btnVer.textContent = this._mostrarUuid ? "Ocultar" : "Mostrar";
-            btnVer.setAttribute("aria-pressed", String(this._mostrarUuid));
+        if (this._mensajeError) {
+            alerta.textContent = this._mensajeError;
+            alerta.classList.remove("oculto");
+        } else {
+            alerta.textContent = "";
+            alerta.classList.add("oculto");
         }
     }
 
-    _mostrarError(mensaje) {
-        const zonaError = this._root.getElementById("zonaErrorLogin");
-        if (!zonaError) return;
-        zonaError.innerHTML = "";
-        if (!mensaje) return;
-
-        const alerta = document.createElement("mensaje-error");
-        alerta.titulo = "No se pudo iniciar sesión";
-        alerta.error = mensaje;
-        alerta.addEventListener("cerrar-error", () => {
-            zonaError.innerHTML = "";
-        });
-        zonaError.appendChild(alerta);
-    }
-
-    async _manejarSubmit(e) {
-        e.preventDefault();
-        if (this._cargando) return;
-
-        const inputNombre = this._root.getElementById("inputNombre");
-        const inputUuid = this._root.getElementById("inputIdEmpleado");
-        const checkRecordar = this._root.getElementById("checkRecordar");
-        const btnIngresar = this._root.getElementById("btnIngresar");
-
-        const nombre = inputNombre ? inputNombre.value : "";
-        const idEmpleado = inputUuid ? inputUuid.value : "";
-        const recordar = checkRecordar ? checkRecordar.checked : false;
-
-        this._mostrarError(null);
-        this._cargando = true;
-        if (btnIngresar) {
-            btnIngresar.disabled = true;
-            btnIngresar.textContent = "Verificando credenciales...";
-        }
-
-        try {
-            const sesion = await this._sessionManager.autenticarEmpleado(nombre, idEmpleado, recordar);
-            this.dispatchEvent(new CustomEvent("login-exitoso", {
-                detail: sesion,
-                bubbles: true,
-                composed: true
-            }));
-        } catch (err) {
-            this._mostrarError(err.message || "Error al validar credenciales.");
-        } finally {
-            this._cargando = false;
-            if (btnIngresar) {
-                btnIngresar.disabled = false;
-                btnIngresar.textContent = "Ingresar al Sistema";
-            }
-        }
-    }
-
-    _manejarAccesoCliente() {
-        const sesionCliente = this._sessionManager.iniciarModoCliente();
-        this.dispatchEvent(new CustomEvent("acceso-cliente", {
-            detail: sesionCliente,
-            bubbles: true,
-            composed: true
-        }));
+    _actualizarEstadoBoton() {
+        const btnSubmit = this.root.querySelector("#btnSubmitLogin");
+        if (!btnSubmit) return;
+        btnSubmit.disabled = this._cargando;
+        btnSubmit.textContent = this._cargando ? "Verificando..." : "Iniciar Sesión";
     }
 
     _dibujar() {
-        if (this._estructuraCreada) return;
+        const logoSrc = this.getAttribute("logo") || "./resources/img/logo_cafe.png";
 
-        this._root.innerHTML = `
+        this.root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/login_cafefe.css">
-            <section class="login-split" aria-label="Inicio de sesión Cafefe">
-                <div class="panel-marca">
-                    <img
-                        id="logoWatermark"
-                        src="${this._logoSrc}"
-                        alt=""
-                        aria-hidden="true"
-                        class="logo-watermark"
-                    >
-
-                    <div class="marca-contenido">
-                        <div class="logo-badge">
-                            <img
-                                id="logoInsignia"
-                                src="${this._logoSrc}"
-                                alt="Logo Cafefe"
-                                class="logo-principal"
-                            >
-                        </div>
-                        <h1 class="marca-titulo">CAFEFE</h1>
-                        <p class="marca-subtitulo">Punto de Venta y Pedidos</p>
-                        <p class="marca-descripcion">
-                            Gestiona órdenes en barra, cobros en caja y pedidos de clientes en tiempo real.
-                        </p>
-                    </div>
-
-                    <div class="marca-pie">
-                        <span class="cliente-hint">¿Vienes a ordenar? No necesitas cuenta</span>
-                        <button type="button" id="btnAccesoCliente" class="btn-cliente">
-                            Hacer Pedido como Cliente
-                        </button>
+            <div class="login-wrapper">
+                <!-- Panel izquierdo de marca -->
+                <div class="login-brand-panel">
+                    <img src="${logoSrc}" alt="" class="watermark-logo" aria-hidden="true">
+                    <div class="brand-content">
+                        <img src="${logoSrc}" alt="Logo Cafefe" class="brand-logo-main">
+                        <h1 class="brand-title">Cafefe</h1>
+                        <p class="brand-subtitle">Cafetería Artesanal · Sistema de Pedidos y Estaciones</p>
                     </div>
                 </div>
 
-                <div class="panel-formulario">
-                    <div class="form-contenedor">
-                        <header class="form-cabecera">
-                            <span class="etiqueta-rol">Estación de Trabajo</span>
-                            <h2 class="form-titulo">Acceso de Personal</h2>
-                            <p class="form-instruccion">
-                                Ingresa tu nombre y tu identificador único de empleado para abrir tu estación asignada.
-                            </p>
-                        </header>
+                <!-- Panel derecho de formulario -->
+                <div class="login-form-panel">
+                    <div class="login-card">
+                        <div class="login-header">
+                            <h2>Acceso de Personal</h2>
+                            <p>Ingresa tu nombre y tu identificador único de empleado</p>
+                        </div>
 
-                        <div id="zonaErrorLogin" class="zona-error"></div>
+                        <div id="alertaLogin" class="alerta-login oculto" role="alert"></div>
 
-                        <form id="formLoginEmpleado" class="login-form" novalidate>
+                        <form id="formLoginCafefe" novalidate>
                             <div class="campo-grupo">
-                                <label for="inputNombre" class="campo-label">Nombre del Empleado</label>
+                                <label for="inputNombreEmpleado">Nombre de empleado</label>
                                 <input
                                     type="text"
-                                    id="inputNombre"
-                                    name="nombre"
-                                    class="campo-input"
-                                    placeholder="Ej. Laura"
-                                    autocomplete="username"
+                                    id="inputNombreEmpleado"
+                                    placeholder="Ej. Ana García"
+                                    autocomplete="name"
                                     required
                                 >
                             </div>
 
                             <div class="campo-grupo">
-                                <label for="inputIdEmpleado" class="campo-label">ID de Empleado (UUID)</label>
-                                <div class="input-uuid-wrap">
+                                <label for="inputUuidEmpleado">Identificador único (UUID)</label>
+                                <div class="input-password-box">
                                     <input
                                         type="password"
-                                        id="inputIdEmpleado"
-                                        name="idEmpleado"
-                                        class="campo-input input-con-boton"
-                                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                                        autocomplete="current-password"
+                                        id="inputUuidEmpleado"
+                                        placeholder="Ingresa tu UUID"
+                                        autocomplete="off"
                                         required
                                     >
-                                    <button
-                                        type="button"
-                                        id="btnToggleUuid"
-                                        class="btn-ver-uuid"
-                                        aria-pressed="false"
-                                    >
-                                        Mostrar
+                                    <button type="button" id="btnToggleUuid" class="btn-toggle-eye" aria-label="Mostrar u ocultar UUID">
+                                        👁️
                                     </button>
                                 </div>
                             </div>
 
-                            <label class="checkbox-fila" for="checkRecordar">
-                                <input type="checkbox" id="checkRecordar" class="checkbox-input">
-                                <span>Mantener sesión activa</span>
-                            </label>
+                            <div class="opciones-fila">
+                                <label class="check-recordar">
+                                    <input type="checkbox" id="chkRecordarSesion">
+                                    <span>Recordar sesión en este dispositivo</span>
+                                </label>
+                            </div>
 
-                            <button type="submit" id="btnIngresar" class="btn-ingresar">
-                                Ingresar al Sistema
+                            <button type="submit" id="btnSubmitLogin" class="btn-login-submit">
+                                Iniciar Sesión
                             </button>
                         </form>
+
+                        <div class="divisor-acceso">
+                            <span>o si deseas ordenar</span>
+                        </div>
+
+                        <button type="button" id="btnAccesoCliente" class="btn-cliente-directo">
+                            Hacer Pedido como Cliente
+                        </button>
                     </div>
                 </div>
-            </section>
+            </div>
         `;
 
-        this._root.getElementById("formLoginEmpleado")
-            .addEventListener("submit", (e) => this._manejarSubmit(e));
+        const form = this.root.querySelector("#formLoginCafefe");
+        const inputNombre = this.root.querySelector("#inputNombreEmpleado");
+        const inputUuid = this.root.querySelector("#inputUuidEmpleado");
+        const chkRecordar = this.root.querySelector("#chkRecordarSesion");
+        const btnToggleUuid = this.root.querySelector("#btnToggleUuid");
+        const btnAccesoCliente = this.root.querySelector("#btnAccesoCliente");
 
-        this._root.getElementById("btnToggleUuid")
-            .addEventListener("click", () => this._toggleVerUuid());
+        btnToggleUuid.addEventListener("click", () => {
+            const esPassword = inputUuid.type === "password";
+            inputUuid.type = esPassword ? "text" : "password";
+            btnToggleUuid.textContent = esPassword ? "🙈" : "👁️";
+        });
 
-        this._root.getElementById("btnAccesoCliente")
-            .addEventListener("click", () => this._manejarAccesoCliente());
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            this.error = "";
 
-        this._estructuraCreada = true;
+            this.dispatchEvent(new CustomEvent("intentar-login", {
+                detail: {
+                    nombre: inputNombre.value,
+                    idEmpleado: inputUuid.value,
+                    recordar: chkRecordar.checked
+                },
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        btnAccesoCliente.addEventListener("click", () => {
+            this.dispatchEvent(new CustomEvent("acceso-cliente", {
+                bubbles: true,
+                composed: true
+            }));
+        });
+
+        this._renderizarAlerta();
+        this._actualizarEstadoBoton();
     }
 }
 

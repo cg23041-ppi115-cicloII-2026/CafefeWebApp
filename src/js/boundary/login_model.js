@@ -33,7 +33,7 @@ class LoginModel extends HTMLElement {
                 window.location.href = './orden.html';
                 break;
             case 'CAJERO':
-                window.location.href = './caja.html';
+                window.location.href = './pago.html';
                 break;
             case 'GERENTE':
             default:
@@ -44,7 +44,6 @@ class LoginModel extends HTMLElement {
 
     async _procesarLoginEmpleado({ nombre, idEmpleado, recordar }) {
         if (!this._loginComp || this._loginComp.cargando) return;
-
         this._loginComp.error = '';
         this._loginComp.cargando = true;
 

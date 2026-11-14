@@ -4,21 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cafefe | Mi Pedido</title>
+    <link rel="icon" type="image/png" href="./resources/img/logo_cafe.png">
     <link rel="stylesheet" href="./resources/estilos/principal.css">
     <link rel="stylesheet" href="./resources/estilos/index.css">
     <link rel="manifest" href="./manifest.json">
 </head>
 <body>
     <div class="layout-grid">
-        <header class="header-cafefe">
-            <div class="marca-box">
-                <img src="./resources/img/logo_cafe.png" alt="Logo Cafefe" class="logo-img">
-                <span class="marca-nombre">Cafefe</span>
-            </div>
-            <nav class="nav-links">
-                <a href="./index.html">Inicio</a>
-            </nav>
-        </header>
+        <cafefe-navbar titulo="Cafefe" ocultar-cerrar-sesion>
+            <button type="button" class="btn-outline" onclick="window.location.href='./index.html'">Inicio</button>
+        </cafefe-navbar>
 
         <main>
             <pedido-model></pedido-model>

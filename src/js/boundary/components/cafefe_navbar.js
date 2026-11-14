@@ -1,8 +1,9 @@
 import "./boton_instalar_pwa.js";
+import "./boton_cerrar_sesion.js";
 
 class CafefeNavbar extends HTMLElement {
     static get observedAttributes() {
-        return ["titulo", "logo", "ocultar-instalar"];
+        return ["titulo", "logo", "usuario", "ocultar-instalar", "ocultar-cerrar-sesion"];
     }
 
     constructor() {
@@ -23,7 +24,9 @@ class CafefeNavbar extends HTMLElement {
     _dibujar() {
         const titulo = this.getAttribute("titulo") || "Cafefe";
         const logo = this.getAttribute("logo") || "./resources/img/logo_cafe.png";
+        const usuario = this.getAttribute("usuario") || "";
         const ocultarInstalar = this.hasAttribute("ocultar-instalar");
+        const ocultarCerrarSesion = this.hasAttribute("ocultar-cerrar-sesion");
 
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/cafefe_navbar.css">
@@ -36,6 +39,7 @@ class CafefeNavbar extends HTMLElement {
                 <div class="navbar-acciones">
                     <slot></slot>
                     ${ocultarInstalar ? "" : `<boton-instalar-pwa></boton-instalar-pwa>`}
+                    ${ocultarCerrarSesion ? "" : `<boton-cerrar-sesion usuario="${usuario}"></boton-cerrar-sesion>`}
                 </div>
             </header>
         `;

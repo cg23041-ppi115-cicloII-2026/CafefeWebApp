@@ -2,6 +2,7 @@ import EmpleadoDAO from "./empleado_dao.js";
 import EmpleadoRolDAO from "./empleado_rol_dao.js";
 
 const STORAGE_KEY = "cafefe_sesion_activa";
+const DURACION_TURNO_MS = 8 * 60 * 60 * 1000; // 8 horas máximas de turno
 
 class SessionManager {
     constructor() {
@@ -84,6 +85,7 @@ class SessionManager {
             vistaInicial = "CAJERO";
         }
 
+        const ahora = Date.now();
         const sesion = {
             modo: "EMPLEADO",
             idEmpleado: empleado.idEmpleado,
@@ -93,7 +95,8 @@ class SessionManager {
             roles: cargosDetectados,
             idEmpleadoRolPrincipal: cargosDetectados[0].idEmpleadoRol,
             vistaInicial,
-            fechaLogin: new Date().toISOString()
+            fechaLogin: new Date(ahora).toISOString(),
+            expiraEn: ahora + DURACION_TURNO_MS
         };
 
         this.guardarSesion(sesion, recordar);
@@ -101,31 +104,44 @@ class SessionManager {
     }
 
     iniciarModoCliente(nombreCliente = "") {
+        const ahora = Date.now();
         const sesionCliente = {
             modo: "CLIENTE",
             nombreCliente: (nombreCliente || "").trim(),
             vistaInicial: "PEDIDO",
-            fechaLogin: new Date().toISOString()
+            fechaLogin: new Date(ahora).toISOString(),
+            expiraEn: ahora + DURACION_TURNO_MS
         };
         this.guardarSesion(sesionCliente, false);
         return sesionCliente;
     }
 
     guardarSesion(sesion, persistente = false) {
+        // Limpiar cualquier sesión previa antes de guardar la nueva
+        this.cerrarSesion();
+
         const serializado = JSON.stringify(sesion);
         sessionStorage.setItem(STORAGE_KEY, serializado);
+
         if (persistente) {
             localStorage.setItem(STORAGE_KEY, serializado);
-        } else {
-            localStorage.removeItem(STORAGE_KEY);
         }
     }
 
     obtenerSesion() {
         const raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
         if (!raw) return null;
+
         try {
-            return JSON.parse(raw);
+            const sesion = JSON.parse(raw);
+
+            // Si la sesión ya expiró (o es una sesión vieja sin expiraEn), cerrarla automáticamente
+            if (!sesion.expiraEn || Date.now() > sesion.expiraEn) {
+                this.cerrarSesion();
+                return null;
+            }
+
+            return sesion;
         } catch {
             this.cerrarSesion();
             return null;

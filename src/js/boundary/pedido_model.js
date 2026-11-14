@@ -1,9 +1,10 @@
+import './components/cafefe_navbar.js';
 import './components/pedido/grid_categorias.js';
 import './components/pedido/catalogo_productos.js';
 import './components/pedido/detalle_producto.js';
 import './components/pedido/resumen_orden.js';
 import './components/mensaje_error.js';
-
+import SessionManager from '../control/session_manager.js';
 import TipoProductoDAO from '../control/tipo_producto_dao.js';
 import ProductoDAO from '../control/producto_dao.js';
 import ProductoTipoProductoDAO from '../control/producto_tipo_producto_dao.js';
@@ -15,14 +16,13 @@ import DescuentoDAO from '../control/descuento_dao.js';
 import DescuentoProductoDAO from '../control/descuento_producto_dao.js';
 import OrdenDAO from '../control/orden_dao.js';
 import OrdenProductoDAO from '../control/orden_producto_dao.js';
-
 import Orden from '../entity/orden.js';
 
 class PedidoModel extends HTMLElement {
     constructor() {
         super();
         this.root = this.attachShadow({ mode: 'open' });
-
+        this.sessionManager = new SessionManager();
         this.tipoProductoDAO = new TipoProductoDAO();
         this.productoDAO = new ProductoDAO();
         this.caracteristicaDAO = new CaracteristicaDAO();
@@ -30,7 +30,6 @@ class PedidoModel extends HTMLElement {
         this.tipoDescuentoDAO = new TipoDescuentoDAO();
         this.descuentoDAO = new DescuentoDAO();
         this.ordenDAO = new OrdenDAO();
-
         this.pasoActual = 1;
         this.categorias = [];
         this.productos = [];
@@ -38,7 +37,6 @@ class PedidoModel extends HTMLElement {
         this.tiposCaracteristica = [];
         this.gruposCaracteristicasProducto = [];
         this.idCategoriaDescuentos = null;
-
         this.categoriaSeleccionadaId = null;
         this.productoSeleccionado = null;
         this.carrito = [];
@@ -49,27 +47,44 @@ class PedidoModel extends HTMLElement {
     }
 
     async connectedCallback() {
+        this._configurarSesionNavbar();
         this._dibujar();
         await this._cargarDatosDesdeAPI();
+    }
+
+    _configurarSesionNavbar() {
+        const sesion = this.sessionManager.obtenerSesion();
+        const navbar = document.querySelector('cafefe-navbar');
+
+        if (navbar) {
+            if (sesion && sesion.modo === 'EMPLEADO') {
+                navbar.setAttribute('usuario', `${sesion.nombre} · ${sesion.vistaInicial}`);
+                navbar.removeAttribute('ocultar-cerrar-sesion');
+            } else {
+                navbar.setAttribute('ocultar-cerrar-sesion', '');
+            }
+        }
+
+        document.addEventListener('cerrar-sesion', () => {
+            this.sessionManager.cerrarSesion();
+            window.location.href = './login.html';
+        });
     }
 
     _mostrarError(titulo, err, accionReintentar = null) {
         const zona = this.root.querySelector('#zonaErrores');
         if (!zona) return;
         zona.innerHTML = '';
-
         const alerta = document.createElement('mensaje-error');
         alerta.titulo = titulo;
         alerta.error = err;
         alerta.reintentable = typeof accionReintentar === 'function';
-
         if (accionReintentar) {
             alerta.addEventListener('reintentar-operacion', () => {
                 this._limpiarError();
                 accionReintentar();
             });
         }
-
         zona.appendChild(alerta);
     }
 
@@ -93,53 +108,43 @@ class PedidoModel extends HTMLElement {
     async _cargarMapaDescuentosVigentes() {
         const mapaPorProducto = new Map();
         const ahora = new Date();
-
         try {
             const [respTipos, respDescuentos] = await Promise.all([
                 this.tipoDescuentoDAO.findRange(0, 50),
                 this.descuentoDAO.findRange(0, 50)
             ]);
-
             const tiposActivos = new Map();
             (respTipos.datos || []).forEach(td => {
                 if (td.activo !== false && td.idTipoDescuento) {
                     tiposActivos.set(td.idTipoDescuento, td);
                 }
             });
-
             const descuentosVigentes = (respDescuentos.datos || []).filter(desc => {
                 const idTipo = desc.idTipoDescuento?.idTipoDescuento
                     || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
-
                 if (idTipo && tiposActivos.size > 0 && !tiposActivos.has(idTipo)) {
                     return false;
                 }
                 return this._estaVigente(desc.fechaDesde, desc.fechaHasta, ahora);
             });
-
             await Promise.all(
                 descuentosVigentes.map(async (desc) => {
                     try {
                         const dpDAO = new DescuentoProductoDAO(desc.idDescuento);
                         const respDP = await dpDAO.findRange(0, 50);
                         const itemsDP = respDP.datos || [];
-
                         const idTipo = desc.idTipoDescuento?.idTipoDescuento
                             || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
                         const tipoInfo = idTipo ? tiposActivos.get(idTipo) : null;
                         const maxPermitido = Number(tipoInfo?.descuentoMaximo || 100);
-
                         itemsDP.forEach(dp => {
                             if (!this._estaVigente(dp.fechaDesde, dp.fechaHasta, ahora)) return;
-
                             const idProd = dp.idProducto?.idProducto
                                 || (typeof dp.idProducto === 'string' ? dp.idProducto : null);
                             if (!idProd) return;
-
                             const valorCrudo = Number(dp.valor || 0);
                             const porcentaje = Math.max(0, Math.min(valorCrudo, maxPermitido));
                             if (porcentaje <= 0) return;
-
                             const anterior = mapaPorProducto.get(idProd);
                             if (!anterior || porcentaje > anterior.porcentaje) {
                                 mapaPorProducto.set(idProd, {
@@ -159,14 +164,12 @@ class PedidoModel extends HTMLElement {
         } catch (err) {
             console.warn('No se pudieron cargar descuentos desde Cafefe-api:', err);
         }
-
         return mapaPorProducto;
     }
 
     async _cargarDatosDesdeAPI() {
         this.cargando = true;
         this._dibujar();
-
         try {
             const [respCategorias, respProductos, respCar, respTipoCar, mapaDescuentos] = await Promise.all([
                 this.tipoProductoDAO.findRange(0, 50),
@@ -175,25 +178,20 @@ class PedidoModel extends HTMLElement {
                 this.tipoCaracteristicaDAO.findRange(0, 50),
                 this._cargarMapaDescuentosVigentes()
             ]);
-
             this._limpiarError();
-
             const categoriasRaw = (respCategorias.datos || []).filter(cat => cat.activo !== false);
             const listaProductos = (respProductos.datos || []).filter(p => p.activo !== false);
             this.caracteristicas = (respCar.datos || []).filter(c => c.activo !== false);
             this.tiposCaracteristica = (respTipoCar.datos || []).filter(tc => tc.activo !== false);
-
             const catDescuentosBD = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase().includes('descuento')
             );
             this.idCategoriaDescuentos = catDescuentosBD
                 ? catDescuentosBD.idTipoProducto
                 : 'VIRTUAL_DESCUENTOS';
-
             const catBebidasMaestra = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase() === 'bebidas' || c.nombre.trim().toLowerCase() === 'bebida'
             );
-
             const mapaRedireccionBebidas = new Map();
             categoriasRaw.forEach(c => {
                 const nom = c.nombre.trim().toLowerCase();
@@ -204,7 +202,6 @@ class PedidoModel extends HTMLElement {
                     });
                 }
             });
-
             const categoriasNormalizadas = categoriasRaw
                 .filter(cat => !mapaRedireccionBebidas.has(cat.idTipoProducto))
                 .map(cat => ({
@@ -214,7 +211,6 @@ class PedidoModel extends HTMLElement {
                         : (cat.idTipoProducto === this.idCategoriaDescuentos ? 'Descuentos' : cat.nombre),
                     imagen: './resources/img/logo_cafe.png'
                 }));
-
             if (!catDescuentosBD) {
                 categoriasNormalizadas.push({
                     idTipoProducto: this.idCategoriaDescuentos,
@@ -224,35 +220,28 @@ class PedidoModel extends HTMLElement {
                     imagen: './resources/img/logo_cafe.png'
                 });
             }
-
             this.categorias = categoriasNormalizadas;
-
             const productosEnriquecidos = await Promise.all(
                 listaProductos.map(async (prod) => {
                     let idTipoProducto = null;
                     let nombreTipoProducto = 'General';
                     let subcategoria = null;
-
                     try {
                         const ptpDAO = new ProductoTipoProductoDAO(prod.idProducto);
                         const respRel = await ptpDAO.findRange(0, 50);
                         const relaciones = respRel.datos || [];
-
                         const relValida = relaciones.find(r => {
                             const idC = r.idTipoProducto?.idTipoProducto
                                 || r.tipoProducto?.idTipoProducto
                                 || (typeof r.idTipoProducto === 'string' ? r.idTipoProducto : null);
                             return idC && idC !== this.idCategoriaDescuentos;
                         });
-
                         if (relValida) {
                             let idCat =
                                 relValida.idTipoProducto?.idTipoProducto ||
                                 relValida.tipoProducto?.idTipoProducto ||
                                 (typeof relValida.idTipoProducto === 'string' ? relValida.idTipoProducto : null);
-
                             subcategoria = relValida.observaciones || null;
-
                             if (mapaRedireccionBebidas.has(idCat)) {
                                 const info = mapaRedireccionBebidas.get(idCat);
                                 idCat = info.idPrincipal;
@@ -260,7 +249,6 @@ class PedidoModel extends HTMLElement {
                                     subcategoria = info.subcategoria;
                                 }
                             }
-
                             idTipoProducto = idCat;
                             const catEncontrada = this.categorias.find(c => c.idTipoProducto === idTipoProducto);
                             if (catEncontrada) {
@@ -270,13 +258,11 @@ class PedidoModel extends HTMLElement {
                     } catch (e) {
                         console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
                     }
-
                     const infoDesc = mapaDescuentos.get(prod.idProducto) || null;
                     const precioBase = Number(prod.precioSugerido || 0);
                     const precioFinal = infoDesc
                         ? Number((precioBase * (1 - infoDesc.porcentaje / 100)).toFixed(2))
                         : precioBase;
-
                     return {
                         ...prod,
                         idTipoProducto,
@@ -291,7 +277,6 @@ class PedidoModel extends HTMLElement {
                     };
                 })
             );
-
             this.productos = productosEnriquecidos;
         } catch (err) {
             console.error('Error al cargar menú desde Cafefe-api:', err);
@@ -312,14 +297,11 @@ class PedidoModel extends HTMLElement {
         this.gruposCaracteristicasProducto = [];
         this.pasoActual = 3;
         this._dibujar();
-
         try {
             const pcDAO = new ProductoCaracteristicaDAO(producto.idProducto);
             const resp = await pcDAO.findRange(0, 50);
             const asignadas = resp.datos || [];
-
             const mapaGrupos = new Map();
-
             asignadas.forEach(item => {
                 const idCar =
                     (typeof item.idCaracteristica === 'string' ? item.idCaracteristica : null) ||
@@ -327,30 +309,25 @@ class PedidoModel extends HTMLElement {
                     item.caracteristica?.idCaracteristica ||
                     item.id ||
                     null;
-
                 const carInfo = this.caracteristicas.find(c => c.idCaracteristica === idCar)
                     || (typeof item.idCaracteristica === 'object' ? item.idCaracteristica : null)
                     || item.caracteristica
                     || item
                     || {};
-
                 const idTipoCar =
                     (typeof carInfo.idTipoCaracteristica === 'string' ? carInfo.idTipoCaracteristica : null) ||
                     carInfo.idTipoCaracteristica?.idTipoCaracteristica ||
                     carInfo.tipoCaracteristica?.idTipoCaracteristica ||
                     'general';
-
                 const tipoCarInfo = this.tiposCaracteristica.find(tc => tc.idTipoCaracteristica === idTipoCar)
                     || (typeof carInfo.idTipoCaracteristica === 'object' ? carInfo.idTipoCaracteristica : null)
                     || carInfo.tipoCaracteristica
                     || {};
-
                 const nombreGrupo = tipoCarInfo.nombre || 'Opciones';
                 const nombreOpcion = carInfo.nombre || item.valor || 'Opción';
                 const etiquetaOpcion = item.valor && item.valor !== nombreOpcion
                     ? `${nombreOpcion} (${item.valor})`
                     : nombreOpcion;
-
                 if (!mapaGrupos.has(idTipoCar)) {
                     mapaGrupos.set(idTipoCar, {
                         idTipoCaracteristica: idTipoCar,
@@ -358,7 +335,6 @@ class PedidoModel extends HTMLElement {
                         opciones: []
                     });
                 }
-
                 mapaGrupos.get(idTipoCar).opciones.push({
                     idProductoCaracteristica: item.idProductoCaracteristica || idCar,
                     idCaracteristica: idCar,
@@ -366,7 +342,6 @@ class PedidoModel extends HTMLElement {
                     valor: item.valor || nombreOpcion
                 });
             });
-
             this.gruposCaracteristicasProducto = Array.from(mapaGrupos.values());
             this._dibujar();
         } catch (err) {
@@ -384,7 +359,6 @@ class PedidoModel extends HTMLElement {
         const existente = this.carrito.find(
             item => item.idProducto === producto.idProducto && item.personalizacion === personalizacion
         );
-
         if (existente) {
             existente.cantidad += cantidad;
         } else {
@@ -416,18 +390,20 @@ class PedidoModel extends HTMLElement {
     }
 
     async _obtenerIdEmpleadoRolPorDefecto() {
+        const sesion = this.sessionManager.obtenerSesion();
+        if (sesion && sesion.modo === 'EMPLEADO' && sesion.idEmpleadoRolPrincipal) {
+            return sesion.idEmpleadoRolPrincipal;
+        }
+
         const base = this.ordenDAO.URL.replace(/orden\/$/, '');
         const respEmp = await fetch(`${base}empleado?first=0&max=50`);
         if (!respEmp.ok) return null;
-
         const empleados = await respEmp.json();
         for (const emp of (Array.isArray(empleados) ? empleados : [])) {
             const idEmp = emp.idEmpleado;
             if (!idEmp) continue;
-
             const respRol = await fetch(`${base}empleado/${idEmp}/rol?first=0&max=50`);
             if (!respRol.ok) continue;
-
             const roles = await respRol.json();
             const erActivo = (Array.isArray(roles) ? roles : []).find(r => r.activo !== false) || roles[0];
             if (erActivo?.idEmpleadoRol) {
@@ -441,9 +417,7 @@ class PedidoModel extends HTMLElement {
         if (this._enviandoOrden) return;
         this._enviandoOrden = true;
         this._limpiarError();
-
         const clienteLimpio = (nombreCliente || '').trim() || 'Consumidor Final';
-
         try {
             const idEmpleadoRolValido = await this._obtenerIdEmpleadoRolPorDefecto();
             if (!idEmpleadoRolValido) {
@@ -451,7 +425,6 @@ class PedidoModel extends HTMLElement {
                     mensaje: 'No se encontró ningún EmpleadoRol activo para asignar la orden en línea.'
                 };
             }
-
             const resumenProductos = items
                 .map(item => {
                     const detalleCar = item.personalizacion && item.personalizacion !== 'Estándar'
@@ -461,30 +434,24 @@ class PedidoModel extends HTMLElement {
                     return `${item.cantidad}x ${item.nombre}${detalleCar}${etiquetaDesc}`;
                 })
                 .join(', ');
-
             const observacionesOrden = [
                 `[CLIENTE: ${clienteLimpio}]`,
                 'Para llevar',
                 resumenProductos
             ].filter(Boolean).join(' | ');
-
             const nuevaOrden = new Orden();
             nuevaOrden.idEmpleadoRol = { idEmpleadoRol: idEmpleadoRolValido };
             nuevaOrden.fechaCreacion = new Date().toISOString();
             nuevaOrden.observaciones = observacionesOrden;
             delete nuevaOrden.idOrden;
-
             const respOrden = await this.ordenDAO.create(nuevaOrden);
             const idOrdenGenerado = respOrden.datos?.id;
-
             if (!idOrdenGenerado) {
                 throw {
                     mensaje: 'La orden se creó, pero no se pudo leer el ID desde la cabecera Location.'
                 };
             }
-
             const ordenProductoDAO = new OrdenProductoDAO(idOrdenGenerado);
-
             for (const item of items) {
                 for (let i = 0; i < item.cantidad; i++) {
                     const obsItem = [
@@ -492,7 +459,6 @@ class PedidoModel extends HTMLElement {
                         item.personalizacion || 'Estándar',
                         item.nombreDescuento ? `Promo: ${item.nombreDescuento}` : null
                     ].filter(Boolean).join(' | ');
-
                     const detalle = {
                         idProducto: { idProducto: item.idProducto },
                         precio: item.precio,
@@ -501,7 +467,6 @@ class PedidoModel extends HTMLElement {
                     await ordenProductoDAO.create(detalle);
                 }
             }
-
             this.carrito = [];
             this._ordenConfirmadaId = idOrdenGenerado;
             this._clienteConfirmado = clienteLimpio;
@@ -509,14 +474,12 @@ class PedidoModel extends HTMLElement {
             this._dibujar();
         } catch (err) {
             console.error('Error al registrar la orden pendiente:', err);
-
             const status = err?.error?.status || err?.status || null;
             let mensaje = err?.mensaje || err?.message || 'No se pudo registrar la orden. Revisa la conexión con el servidor.';
             if (err?.error?.headers) {
                 const headerErr = err.error.headers.get('Wrong-parameter') || err.error.headers.get('Process-error');
                 if (headerErr) mensaje += ` (${headerErr})`;
             }
-
             this._mostrarError(
                 'Error al confirmar la orden',
                 { status, mensaje },
@@ -529,7 +492,6 @@ class PedidoModel extends HTMLElement {
 
     _dibujar() {
         const erroresActuales = this.root.querySelector('#zonaErrores')?.innerHTML || '';
-
         this.root.innerHTML = `
             <style>
                 :host {
@@ -606,9 +568,7 @@ class PedidoModel extends HTMLElement {
             <div class="zona-errores" id="zonaErrores">${erroresActuales}</div>
             <div id="contenidoPaso"></div>
         `;
-
         const contenedor = this.root.querySelector('#contenidoPaso');
-
         if (this.cargando) {
             const p = document.createElement('p');
             p.className = 'estado-carga';
@@ -616,7 +576,6 @@ class PedidoModel extends HTMLElement {
             contenedor.appendChild(p);
             return;
         }
-
         if (this.pasoActual === 1) {
             const grid = document.createElement('grid-categorias');
             grid.categorias = this.categorias;
@@ -634,7 +593,6 @@ class PedidoModel extends HTMLElement {
             catalogo.categoriaActivaId = this.categoriaSeleccionadaId;
             catalogo.idCategoriaDescuentos = this.idCategoriaDescuentos;
             catalogo.cantidadCarrito = this._totalItemsCarrito();
-
             catalogo.addEventListener('seleccionar-producto', (e) => {
                 this._abrirDetalleProducto(e.detail);
             });
@@ -651,7 +609,6 @@ class PedidoModel extends HTMLElement {
             const detalle = document.createElement('detalle-producto');
             detalle.producto = this.productoSeleccionado;
             detalle.gruposCaracteristicas = this.gruposCaracteristicasProducto;
-
             detalle.addEventListener('agregar-carrito', (e) => {
                 const { producto, personalizacion, cantidad } = e.detail;
                 this._agregarAlCarrito(producto, personalizacion, cantidad);
@@ -667,7 +624,6 @@ class PedidoModel extends HTMLElement {
         } else if (this.pasoActual === 4) {
             const resumen = document.createElement('resumen-orden');
             resumen.items = this.carrito;
-
             resumen.addEventListener('actualizar-cantidad', (e) => {
                 this._actualizarCantidadCarrito(e.detail.index, e.detail.delta);
             });

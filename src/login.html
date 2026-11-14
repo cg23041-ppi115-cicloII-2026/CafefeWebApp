@@ -10,9 +10,9 @@
 </head>
 <body>
     <div class="layout-grid">
-        <cafefe-navbar titulo="Cafefe · Iniciar Sesión">
-    <button type="button" class="btn-outline" onclick="window.location.href='./index.html'">Inicio</button>
-</cafefe-navbar>
+        <cafefe-navbar titulo="Cafefe · Iniciar Sesión" ocultar-cerrar-sesion>
+            <button type="button" class="btn-outline" onclick="window.location.href='./index.html'">Inicio</button>
+        </cafefe-navbar>
 
         <main>
             <login-model></login-model>
@@ -23,6 +23,7 @@
         </footer>
     </div>
 
+    <script type="module" src="./js/boundary/components/cafefe_navbar.js"></script>
     <script type="module" src="./js/boundary/login_model.js"></script>
 </body>
 </html>

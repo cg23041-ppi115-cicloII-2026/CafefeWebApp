@@ -1,0 +1,181 @@
+:host {
+    display: block;
+    font-family: var(--fuente-principal);
+    background-color: var(--bg-app);
+    color: var(--texto-principal);
+    min-height: calc(100vh - 64px);
+    padding: 1.5rem;
+    box-sizing: border-box;
+}
+
+.zona-errores {
+    max-width: 1280px;
+    margin: 0 auto 1rem auto;
+}
+
+.subnav-tpv {
+    max-width: 1280px;
+    margin: 0 auto 1.25rem auto;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-subnav {
+    background-color: var(--bg-tarjeta);
+    color: var(--texto-principal);
+    border: 1.5px solid var(--borde-suave);
+    border-radius: 8px;
+    padding: 0.55rem 1.1rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-subnav:hover {
+    border-color: var(--color-primario);
+}
+
+.btn-subnav.activo {
+    background-color: var(--color-primario);
+    color: var(--texto-claro);
+    border-color: var(--color-primario);
+}
+
+.layout-tpv {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .layout-tpv {
+        grid-template-columns: 1fr;
+    }
+}
+
+.columna-ordenes {
+    background-color: var(--bg-tarjeta);
+    border-radius: var(--radio-panel);
+    padding: 1.25rem;
+    border: 1px solid var(--borde-suave);
+    box-shadow: var(--sombra-suave);
+}
+
+.cabecera-columna {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--bg-app);
+    padding-bottom: 0.65rem;
+}
+
+.cabecera-columna h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--texto-principal);
+}
+
+.btn-refrescar-mini {
+    background-color: var(--bg-app);
+    color: var(--texto-principal);
+    border: 1px solid var(--borde-suave);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-refrescar-mini:hover {
+    background-color: var(--borde-suave);
+}
+
+.lista-ordenes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.tarjeta-cobro {
+    border: 1.5px solid var(--borde-suave);
+    border-radius: var(--radio-tarjeta);
+    padding: 0.85rem;
+    background-color: var(--bg-contenedor);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.tarjeta-cobro:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sombra-suave);
+}
+
+.tarjeta-cobro.activa {
+    border-color: var(--color-acento);
+    background-color: var(--estado-error-bg);
+}
+
+.tarjeta-cobro-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    color: var(--texto-principal);
+    font-size: 1.05rem;
+}
+
+.tarjeta-cobro-detalle {
+    font-size: 0.82rem;
+    color: var(--texto-secundario);
+    margin: 4px 0 10px 0;
+}
+
+.btn-seleccionar {
+    width: 100%;
+    padding: 7px;
+    border-radius: 6px;
+    border: 1.5px solid var(--color-primario);
+    background-color: var(--bg-tarjeta);
+    color: var(--color-primario);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-seleccionar:hover {
+    background-color: var(--color-primario);
+    color: var(--texto-claro);
+}
+
+.tarjeta-cobro.activa .btn-seleccionar {
+    background-color: var(--color-primario);
+    color: var(--texto-claro);
+}
+
+.texto-vacio {
+    text-align: center;
+    color: var(--texto-secundario);
+    font-size: 0.9rem;
+    padding: 1.5rem 0;
+}
+
+@media print {
+    .subnav-tpv,
+    .zona-errores,
+    .layout-tpv,
+    historial-facturas {
+        display: none !important;
+    }
+
+    :host {
+        padding: 0 !important;
+        background: #ffffff !important;
+        min-height: auto !important;
+    }
+}

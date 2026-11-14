@@ -18,7 +18,8 @@ class OrdenModel extends HTMLElement {
         this._mapaProductos = new Map();
 
         this._pagina = 0;
-        this._tamanoPagina = 3;
+        this._tamanoPagina = 10;
+        this._hayMasPaginas = false;
 
         this._pendientes = [];
         this._enProceso = null; // { orden, productos }
@@ -55,6 +56,36 @@ class OrdenModel extends HTMLElement {
         if (zona) zona.innerHTML = "";
     }
 
+    _limpiarEtiquetasEstado(obs = "") {
+        return String(obs || "")
+            .replace(/\s*\|\s*\[ESTADO:[^\]]*\]/g, "")
+            .replace(/^\[ESTADO:[^\]]*\]\s*\|\s*/g, "")
+            .trim();
+    }
+
+    _construirObservacion(obsActual, etiquetaEstado) {
+        const base = this._limpiarEtiquetasEstado(obsActual);
+        return base ? `${base} | ${etiquetaEstado}` : etiquetaEstado;
+    }
+
+    _normalizarProductos(itemsCrudos) {
+        return itemsCrudos.map(item => {
+            const esObjeto = typeof item.idProducto === "object" && item.idProducto !== null;
+            const idProd = esObjeto ? item.idProducto.idProducto : item.idProducto;
+            const nombre = (esObjeto && item.idProducto.nombre)
+                || this._mapaProductos.get(String(idProd))
+                || `Producto #${String(idProd).slice(-5).toUpperCase()}`;
+
+            return {
+                ...item,
+                idProducto: idProd,
+                nombreProducto: nombre,
+                observacionesLimpias: this._limpiarEtiquetasEstado(item.observaciones),
+                listo: false
+            };
+        });
+    }
+
     _cargarCatalogoProductos() {
         return this._productoDAO.findRange(0, 50)
             .then(res => {
@@ -79,29 +110,49 @@ class OrdenModel extends HTMLElement {
             .then(res => {
                 this._limpiarError();
                 const datos = Array.isArray(res.datos) ? res.datos : [];
-                const idActivo = this._enProceso?.orden?.idOrden;
-                const idsListos = new Set(this._listas.map(item => item.orden.idOrden));
+                this._hayMasPaginas = datos.length === this._tamanoPagina;
 
-                const candidatas = datos.filter(o => o.idOrden !== idActivo && !idsListos.has(o.idOrden));
-
-                const promesas = candidatas.map(orden => {
+                const promesas = datos.map(orden => {
                     const prodDAO = new OrdenProductoDAO(orden.idOrden);
-                    return prodDAO.findRange(0, 1)
+                    return prodDAO.findRange(0, 50)
                         .then(r => {
                             const items = Array.isArray(r.datos) ? r.datos : [];
-                            if (items.length === 0) return orden;
+                            if (items.length === 0) return { tipo: "pendiente", orden };
+
                             const obs = items[0].observaciones || "";
-                            if (obs.includes("[ESTADO: ENTREGADO]") || obs.includes("Entregado") ||
-                                obs.includes("[ESTADO: CANCELADO") || obs.includes("CANCELADO")) {
+                            if (obs.includes("[ESTADO: ENTREGADO") || obs.includes("[ESTADO: CANCELADO")) {
                                 return null;
                             }
-                            return { ...orden, observaciones: obs };
+                            if (obs.includes("[ESTADO: LISTO]")) {
+                                return { tipo: "lista", orden, productos: this._normalizarProductos(items) };
+                            }
+                            if (obs.includes("[ESTADO: PREPARANDOSE]")) {
+                                return { tipo: "proceso", orden, productos: this._normalizarProductos(items) };
+                            }
+                            return { tipo: "pendiente", orden };
                         })
-                        .catch(() => orden);
+                        .catch(() => ({ tipo: "pendiente", orden }));
                 });
 
                 return Promise.all(promesas).then(resultados => {
-                    this._pendientes = resultados.filter(o => o !== null);
+                    const pendientes = [];
+                    const listas = [];
+                    let enProceso = null;
+
+                    resultados.forEach(r => {
+                        if (!r) return;
+                        if (r.tipo === "lista") {
+                            listas.push({ orden: r.orden, productos: r.productos });
+                        } else if (r.tipo === "proceso" && !enProceso) {
+                            enProceso = { orden: r.orden, productos: r.productos };
+                        } else {
+                            pendientes.push(r.orden);
+                        }
+                    });
+
+                    this._pendientes = pendientes;
+                    this._enProceso = enProceso;
+                    this._listas = listas;
                     this._renderizarListas();
                 });
             })
@@ -112,6 +163,21 @@ class OrdenModel extends HTMLElement {
                     () => this._cargarOrdenes()
                 );
             });
+    }
+
+    _actualizarProductosBD(idOrden, productos, etiquetaEstado) {
+        const prodDAO = new OrdenProductoDAO(idOrden);
+        const promesas = productos.map(prod => {
+            const nuevaObs = this._construirObservacion(prod.observaciones, etiquetaEstado);
+            prod.observaciones = nuevaObs;
+            return prodDAO.update(prod.idOrdenProducto, {
+                idOrdenProducto: prod.idOrdenProducto,
+                precio: Number(prod.precio || 0),
+                observaciones: nuevaObs,
+                idProducto: { idProducto: prod.idProducto }
+            }).catch(err => console.warn(`Error update ${etiquetaEstado}:`, err));
+        });
+        return Promise.all(promesas);
     }
 
     _tomarOrden(orden) {
@@ -137,32 +203,8 @@ class OrdenModel extends HTMLElement {
                     return;
                 }
 
-                const productos = itemsCrudos.map(item => {
-                    const esObjeto = typeof item.idProducto === "object" && item.idProducto !== null;
-                    const idProd = esObjeto ? item.idProducto.idProducto : item.idProducto;
-                    const nombre = (esObjeto && item.idProducto.nombre)
-                        || this._mapaProductos.get(String(idProd))
-                        || `Producto #${String(idProd).slice(-5).toUpperCase()}`;
-
-                    return {
-                        ...item,
-                        idProducto: idProd,
-                        nombreProducto: nombre,
-                        listo: false
-                    };
-                });
-
-                // Sincronizar [ESTADO: PREPARANDOSE] en BD para todos los productos
-                const actualizaciones = productos.map(prod => {
-                    const nuevaObs = (prod.observaciones || "") + " | [ESTADO: PREPARANDOSE]";
-                    prod.observaciones = nuevaObs;
-                    return prodDAO.update(prod.idOrdenProducto, {
-                        precio: Number(prod.precio || 0),
-                        observaciones: nuevaObs,
-                        idProducto: { idProducto: prod.idProducto }
-                    }).catch(err => console.warn("Error update preparandose:", err));
-                });
-                Promise.all(actualizaciones);
+                const productos = this._normalizarProductos(itemsCrudos);
+                this._actualizarProductosBD(orden.idOrden, productos, "[ESTADO: PREPARANDOSE]");
 
                 this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
                 this._enProceso = { orden, productos };
@@ -182,16 +224,7 @@ class OrdenModel extends HTMLElement {
         const { orden: o, productos } = this._enProceso || { orden, productos: [] };
 
         if (productos.length > 0) {
-            const prodDAO = new OrdenProductoDAO(o.idOrden);
-            productos.forEach(prod => {
-                const nuevaObs = (prod.observaciones || "") + " | [ESTADO: DEVUELTO A COLA]";
-                prod.observaciones = nuevaObs;
-                prodDAO.update(prod.idOrdenProducto, {
-                    precio: Number(prod.precio || 0),
-                    observaciones: nuevaObs,
-                    idProducto: { idProducto: prod.idProducto }
-                }).catch(err => console.warn("Error update devuelto:", err));
-            });
+            this._actualizarProductosBD(o.idOrden, productos, "[ESTADO: DEVUELTO A COLA]");
         }
         this._pendientes.unshift(o);
         this._enProceso = null;
@@ -203,16 +236,7 @@ class OrdenModel extends HTMLElement {
         const { orden: o, productos } = this._enProceso || { orden, productos: [] };
 
         if (productos.length > 0) {
-            const prodDAO = new OrdenProductoDAO(o.idOrden);
-            productos.forEach(prod => {
-                const nuevaObs = (prod.observaciones || "") + " | [ESTADO: LISTO]";
-                prod.observaciones = nuevaObs;
-                prodDAO.update(prod.idOrdenProducto, {
-                    precio: Number(prod.precio || 0),
-                    observaciones: nuevaObs,
-                    idProducto: { idProducto: prod.idProducto }
-                }).catch(err => console.warn("Error update listo:", err));
-            });
+            this._actualizarProductosBD(o.idOrden, productos, "[ESTADO: LISTO]");
         }
         this._listas.unshift({ orden: o, productos });
         this._enProceso = null;
@@ -224,17 +248,8 @@ class OrdenModel extends HTMLElement {
         const item = this._listas.find(it => it.orden.idOrden === orden.idOrden);
 
         if (item && item.productos.length > 0) {
-            const hora = new Date().toLocaleTimeString("es-GT", { hour: "2-digit", minute: "2-digit" });
-            const prodDAO = new OrdenProductoDAO(item.orden.idOrden);
-            item.productos.forEach(prod => {
-                const nuevaObs = (prod.observaciones || "") + ` | [ESTADO: ENTREGADO ${hora}]`;
-                prod.observaciones = nuevaObs;
-                prodDAO.update(prod.idOrdenProducto, {
-                    precio: Number(prod.precio || 0),
-                    observaciones: nuevaObs,
-                    idProducto: { idProducto: prod.idProducto }
-                }).catch(err => console.warn("Error update entregado:", err));
-            });
+            const hora = new Date().toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" });
+            this._actualizarProductosBD(item.orden.idOrden, item.productos, `[ESTADO: ENTREGADO ${hora}]`);
         }
         this._listas = this._listas.filter(it => it.orden.idOrden !== orden.idOrden);
         this._renderizarListas();
@@ -262,34 +277,17 @@ class OrdenModel extends HTMLElement {
         }
         this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
 
-        const textoEstado = `[ESTADO: CANCELADO - ${motivo}]`;
+        const etiqueta = `[ESTADO: CANCELADO - ${motivo}]`;
 
         if (productos.length > 0) {
-            const prodDAO = new OrdenProductoDAO(orden.idOrden);
-            productos.forEach(prod => {
-                const nuevaObs = (prod.observaciones || "") + ` | ${textoEstado}`;
-                prod.observaciones = nuevaObs;
-                prodDAO.update(prod.idOrdenProducto, {
-                    precio: Number(prod.precio || 0),
-                    observaciones: nuevaObs,
-                    idProducto: { idProducto: prod.idProducto }
-                }).catch(err => console.warn("Error update cancelado:", err));
-            });
+            this._actualizarProductosBD(orden.idOrden, productos, etiqueta);
         } else {
             const prodDAO = new OrdenProductoDAO(orden.idOrden);
             prodDAO.findRange(0, 50).then(res => {
-                const items = Array.isArray(res.datos) ? res.datos : [];
-                items.forEach(prod => {
-                    const idProd = typeof prod.idProducto === "object" && prod.idProducto !== null 
-                        ? prod.idProducto.idProducto 
-                        : prod.idProducto;
-                    const nuevaObs = (prod.observaciones || "") + ` | ${textoEstado}`;
-                    prodDAO.update(prod.idOrdenProducto, {
-                        precio: Number(prod.precio || 0),
-                        observaciones: nuevaObs,
-                        idProducto: { idProducto: idProd }
-                    }).catch(err => console.warn("Error update cancelado:", err));
-                });
+                const items = this._normalizarProductos(Array.isArray(res.datos) ? res.datos : []);
+                if (items.length > 0) {
+                    this._actualizarProductosBD(orden.idOrden, items, etiqueta);
+                }
             }).catch(() => {});
         }
 
@@ -300,7 +298,6 @@ class OrdenModel extends HTMLElement {
         const modal = this._root.querySelector("modal-historial-orden");
         if (!modal) return;
 
-        // Cargar últimas 30 órdenes y filtrar las que tienen ENTREGADO o CANCELADO
         this._ordenDAO.findRange(0, 30)
             .then(res => {
                 const lista = Array.isArray(res.datos) ? res.datos : [];
@@ -309,8 +306,8 @@ class OrdenModel extends HTMLElement {
                     return pDAO.findRange(0, 10).then(r => {
                         const items = Array.isArray(r.datos) ? r.datos : [];
                         const obs = items[0]?.observaciones || "";
-                        const esEntregado = obs.includes("ENTREGADO") || obs.includes("Entregado");
-                        const esCancelado = obs.includes("CANCELADO");
+                        const esEntregado = obs.includes("[ESTADO: ENTREGADO");
+                        const esCancelado = obs.includes("[ESTADO: CANCELADO");
                         if (esEntregado || esCancelado) {
                             return {
                                 orden,
@@ -326,39 +323,18 @@ class OrdenModel extends HTMLElement {
                 return Promise.all(promesas);
             })
             .then(itemsHistorial => {
-                const itemsFiltrados = itemsHistorial.filter(it => it !== null);
-                modal.abrir(itemsFiltrados);
+                modal.abrir(itemsHistorial.filter(it => it !== null));
             })
-            .catch(() => {
-                this._mostrarError("Error al cargar el historial del turno");
+            .catch(err => {
+                this._mostrarError("Error al cargar el historial del turno", err);
             });
     }
 
     _reabrirOrden(itemHistorial) {
         const { orden, productos } = itemHistorial;
-        const prodDAO = new OrdenProductoDAO(orden.idOrden);
-
-        const updates = productos.map(prod => {
-            const idProd = typeof prod.idProducto === "object" && prod.idProducto !== null 
-                ? prod.idProducto.idProducto 
-                : prod.idProducto;
-            let obsLimpia = (prod.observaciones || "")
-                .replace(/ \| \[ESTADO: ENTREGADO[^\]]*\]/g, "")
-                .replace(/ \| \[ESTADO: CANCELADO[^\]]*\]/g, "")
-                .replace(/ \| 📦 Entregado[^\n|]*/g, "")
-                .replace(/ \| ❌ CANCELADO/g, "");
-            obsLimpia += " | [ESTADO: REABIERTO]";
-
-            return prodDAO.update(prod.idOrdenProducto, {
-                precio: Number(prod.precio || 0),
-                observaciones: obsLimpia,
-                idProducto: { idProducto: idProd }
-            }).catch(() => {});
-        });
-
-        Promise.all(updates).then(() => {
-            this._cargarOrdenes();
-        });
+        const normalizados = this._normalizarProductos(productos);
+        this._actualizarProductosBD(orden.idOrden, normalizados, "[ESTADO: REABIERTO]")
+            .then(() => this._cargarOrdenes());
     }
 
     _dibujarLayout() {
@@ -406,7 +382,7 @@ class OrdenModel extends HTMLElement {
             }
         });
         this._root.addEventListener("pagina-siguiente", () => {
-            if (this._pendientes.length === this._tamanoPagina) {
+            if (this._hayMasPaginas) {
                 this._pagina++;
                 this._cargarOrdenes();
             }
@@ -452,7 +428,7 @@ class OrdenModel extends HTMLElement {
 
         const paginador = this._root.querySelector("#paginador");
         if (paginador) {
-            paginador.configurar(this._pagina, this._pendientes.length === this._tamanoPagina);
+            paginador.configurar(this._pagina, this._hayMasPaginas);
         }
     }
 }

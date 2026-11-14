@@ -3,6 +3,8 @@ class ResumenOrden extends HTMLElement {
         super();
         this._root = this.attachShadow({ mode: 'open' });
         this._items = [];
+        this._nombreCliente = '';
+        this._errorNombre = false;
     }
 
     set items(valor) {
@@ -39,10 +41,27 @@ class ResumenOrden extends HTMLElement {
 
     _confirmarOrden() {
         if (this._items.length === 0) return;
+
+        const input = this._root.querySelector('#nombreClienteInput');
+        const nombreLimpio = (input ? input.value : this._nombreCliente).trim();
+        this._nombreCliente = nombreLimpio;
+
+        if (!nombreLimpio) {
+            this._errorNombre = true;
+            this._dibujar();
+            const inputReenfocado = this._root.querySelector('#nombreClienteInput');
+            if (inputReenfocado) inputReenfocado.focus();
+            return;
+        }
+
+        this._errorNombre = false;
         this.dispatchEvent(new CustomEvent('confirmar-orden', {
             detail: {
                 items: this._items,
-                total: this._calcularTotal()
+                total: this._calcularTotal(),
+                nombreCliente: nombreLimpio,
+                estado: 'PENDIENTE',
+                metodoPago: 'LOCAL'
             },
             bubbles: true,
             composed: true
@@ -55,7 +74,6 @@ class ResumenOrden extends HTMLElement {
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/resumen_orden.css">
             <section class="resumen-layout" id="resumenOrdenLayout">
-                
                 <div class="carrito-lista-box" id="carritoListaBox">
                     <h2 class="resumen-titulo">Resumen del Carrito</h2>
                 </div>
@@ -69,12 +87,27 @@ class ResumenOrden extends HTMLElement {
                         </div>
                         <div class="linea-resumen">
                             <span>Modalidad:</span>
-                            <span>Para recoger</span>
+                            <span>Para llevar</span>
                         </div>
                         <hr class="divisor">
                         <div class="linea-total">
                             <span>TOTAL:</span>
                             <span>$${total}</span>
+                        </div>
+
+                        <div class="campo-cliente">
+                            <label for="nombreClienteInput" class="label-cliente">Nombre del cliente:</label>
+                            <input
+                                type="text"
+                                id="nombreClienteInput"
+                                class="input-cliente ${this._errorNombre ? 'input-error' : ''}"
+                                placeholder="Ej. Juan Pérez"
+                                required
+                            />
+                            ${this._errorNombre
+                                ? '<span class="msg-error-campo">Por favor ingresa tu nombre para identificar el pedido.</span>'
+                                : ''
+                            }
                         </div>
 
                         <div class="aviso-local" id="avisoPagoLocal">
@@ -97,8 +130,23 @@ class ResumenOrden extends HTMLElement {
             </section>
         `;
 
-        const listaBox = this._root.getElementById('carritoListaBox');
+        // Restaurar el texto escrito en el input
+        const inputCliente = this._root.querySelector('#nombreClienteInput');
+        if (inputCliente) {
+            inputCliente.value = this._nombreCliente;
+            inputCliente.addEventListener('input', (e) => {
+                this._nombreCliente = e.target.value;
+                if (this._errorNombre && this._nombreCliente.trim() !== '') {
+                    this._errorNombre = false;
+                    inputCliente.classList.remove('input-error');
+                    const msgErr = this._root.querySelector('.msg-error-campo');
+                    if (msgErr) msgErr.remove();
+                }
+            });
+        }
 
+        // Renderizar los ítems del carrito con DOM nativo
+        const listaBox = this._root.querySelector('#carritoListaBox');
         if (this._items.length === 0) {
             const vacio = document.createElement('p');
             vacio.className = 'carrito-vacio';
@@ -112,7 +160,7 @@ class ResumenOrden extends HTMLElement {
 
                 const precioUnitario = Number(item.precio).toFixed(2);
                 const subtotalItem = (Number(item.precio) * Number(item.cantidad)).toFixed(2);
-                const imagenSrc = item.imagen || './resources/img/default_cafe.png';
+                const imagenSrc = item.imagen || './resources/img/logo_cafe.png';
 
                 itemDiv.innerHTML = `
                     <img src="${imagenSrc}" alt="${item.nombre}" class="item-img">
@@ -137,8 +185,8 @@ class ResumenOrden extends HTMLElement {
             });
         }
 
-        this._root.getElementById('btnSeguirPidiendo').addEventListener('click', () => this._seguirPidiendo());
-        this._root.getElementById('btnConfirmarOrden').addEventListener('click', () => this._confirmarOrden());
+        this._root.querySelector('#btnSeguirPidiendo').addEventListener('click', () => this._seguirPidiendo());
+        this._root.querySelector('#btnConfirmarOrden').addEventListener('click', () => this._confirmarOrden());
     }
 }
 

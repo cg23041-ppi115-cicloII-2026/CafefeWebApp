@@ -97,13 +97,53 @@ class DetalleProducto extends HTMLElement {
 
         const p = this._producto;
         const total = this._calcularTotal().toFixed(2);
+        const tieneDesc = p.tieneDescuento === true && Number(p.precioOriginal) > Number(p.precioSugerido);
         const precioUnitario = Number(p.precioSugerido || 0).toFixed(2);
+        const precioOriginal = Number(p.precioOriginal || 0).toFixed(2);
         const imagenSrc = p.imagen || './resources/img/logo_cafe.png';
         const categoriaNombre = p.nombreTipoProducto || p.subcategoria || 'General';
         const descripcion = p.comentarios || 'Sin descripción disponible.';
 
+        const bannerPromoHtml = tieneDesc
+            ? `
+                <div class="detalle-promo-badge">
+                    Promoción aplicada: <strong>${p.nombreDescuento || 'Descuento'}</strong> (-${p.porcentajeDescuento}%)
+                </div>
+            `
+            : '';
+
+        const bloquePrecioHtml = tieneDesc
+            ? `
+                <div class="detalle-precio">
+                    <span class="detalle-precio-original">$${precioOriginal}</span>
+                    <span class="detalle-precio-promo">$${precioUnitario}</span>
+                </div>
+            `
+            : `<div class="detalle-precio">$${precioUnitario}</div>`;
+
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/detalle_producto.css">
+            <style>
+                .detalle-promo-badge {
+                    display: inline-block;
+                    background: var(--color-acento, #C8322B);
+                    color: var(--texto-claro, #FFFFFF);
+                    padding: 0.35rem 0.85rem;
+                    border-radius: 999px;
+                    font-size: 0.85rem;
+                    margin-bottom: 0.65rem;
+                }
+                .detalle-precio-original {
+                    font-size: 1.05rem;
+                    color: var(--texto-secundario, #6e5740);
+                    text-decoration: line-through;
+                    margin-right: 0.6rem;
+                    font-weight: 500;
+                }
+                .detalle-precio-promo {
+                    color: var(--color-acento, #C8322B);
+                }
+            </style>
             <section class="detalle-contenedor" id="detalleProductoContenedor">
                 <div class="detalle-imagen-box">
                     <img 
@@ -114,10 +154,11 @@ class DetalleProducto extends HTMLElement {
                 </div>
 
                 <div class="detalle-info" id="detalleInfo">
+                    ${bannerPromoHtml}
                     <h1 class="detalle-nombre" id="nombreDetalle">${p.nombre}</h1>
                     <p class="detalle-categoria"><strong>Categoría:</strong> ${categoriaNombre}</p>
                     <p class="detalle-descripcion">${descripcion}</p>
-                    <div class="detalle-precio">$${precioUnitario}</div>
+                    ${bloquePrecioHtml}
                 </div>
             </section>
         `;
@@ -137,7 +178,6 @@ class DetalleProducto extends HTMLElement {
         const controlesDiv = document.createElement('div');
         controlesDiv.className = 'detalle-controles';
 
-        // Genera un ComboBox (<select>) por cada tipo de característica del producto en la BD
         this._gruposCaracteristicas.forEach((grupo, index) => {
             const grupoDiv = document.createElement('div');
             grupoDiv.className = 'control-grupo';
@@ -171,7 +211,6 @@ class DetalleProducto extends HTMLElement {
             controlesDiv.appendChild(grupoDiv);
         });
 
-        // Selector de cantidad
         const grupoCantidad = document.createElement('div');
         grupoCantidad.className = 'control-grupo';
         grupoCantidad.innerHTML = `
@@ -185,7 +224,6 @@ class DetalleProducto extends HTMLElement {
         controlesDiv.appendChild(grupoCantidad);
         detalleInfo.appendChild(controlesDiv);
 
-        // Botones de acción
         const accionesDiv = document.createElement('div');
         accionesDiv.className = 'detalle-acciones';
         accionesDiv.innerHTML = `

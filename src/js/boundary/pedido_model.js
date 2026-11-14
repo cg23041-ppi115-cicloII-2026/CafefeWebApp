@@ -10,6 +10,9 @@ import ProductoTipoProductoDAO from '../control/producto_tipo_producto_dao.js';
 import CaracteristicaDAO from '../control/caracteristica_dao.js';
 import TipoCaracteristicaDAO from '../control/tipo_caracteristica_dao.js';
 import ProductoCaracteristicaDAO from '../control/producto_caracteristica_dao.js';
+import TipoDescuentoDAO from '../control/tipo_descuento_dao.js';
+import DescuentoDAO from '../control/descuento_dao.js';
+import DescuentoProductoDAO from '../control/descuento_producto_dao.js';
 import OrdenDAO from '../control/orden_dao.js';
 import OrdenProductoDAO from '../control/orden_producto_dao.js';
 
@@ -24,6 +27,8 @@ class PedidoModel extends HTMLElement {
         this.productoDAO = new ProductoDAO();
         this.caracteristicaDAO = new CaracteristicaDAO();
         this.tipoCaracteristicaDAO = new TipoCaracteristicaDAO();
+        this.tipoDescuentoDAO = new TipoDescuentoDAO();
+        this.descuentoDAO = new DescuentoDAO();
         this.ordenDAO = new OrdenDAO();
 
         this.pasoActual = 1;
@@ -32,6 +37,7 @@ class PedidoModel extends HTMLElement {
         this.caracteristicas = [];
         this.tiposCaracteristica = [];
         this.gruposCaracteristicasProducto = [];
+        this.idCategoriaDescuentos = null;
 
         this.categoriaSeleccionadaId = null;
         this.productoSeleccionado = null;
@@ -39,6 +45,7 @@ class PedidoModel extends HTMLElement {
         this.cargando = true;
         this._enviandoOrden = false;
         this._ordenConfirmadaId = null;
+        this._clienteConfirmado = '';
     }
 
     async connectedCallback() {
@@ -71,16 +78,103 @@ class PedidoModel extends HTMLElement {
         if (zona) zona.innerHTML = '';
     }
 
+    _estaVigente(fechaDesde, fechaHasta, ahora = new Date()) {
+        if (fechaDesde) {
+            const inicio = new Date(fechaDesde);
+            if (!Number.isNaN(inicio.getTime()) && ahora < inicio) return false;
+        }
+        if (fechaHasta) {
+            const fin = new Date(fechaHasta);
+            if (!Number.isNaN(fin.getTime()) && ahora > fin) return false;
+        }
+        return true;
+    }
+
+    async _cargarMapaDescuentosVigentes() {
+        const mapaPorProducto = new Map();
+        const ahora = new Date();
+
+        try {
+            const [respTipos, respDescuentos] = await Promise.all([
+                this.tipoDescuentoDAO.findRange(0, 50),
+                this.descuentoDAO.findRange(0, 50)
+            ]);
+
+            const tiposActivos = new Map();
+            (respTipos.datos || []).forEach(td => {
+                if (td.activo !== false && td.idTipoDescuento) {
+                    tiposActivos.set(td.idTipoDescuento, td);
+                }
+            });
+
+            const descuentosVigentes = (respDescuentos.datos || []).filter(desc => {
+                const idTipo = desc.idTipoDescuento?.idTipoDescuento
+                    || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
+
+                // Si tiene tipoDescuento asociado, exigir que esté activo
+                if (idTipo && tiposActivos.size > 0 && !tiposActivos.has(idTipo)) {
+                    return false;
+                }
+                return this._estaVigente(desc.fechaDesde, desc.fechaHasta, ahora);
+            });
+
+            await Promise.all(
+                descuentosVigentes.map(async (desc) => {
+                    try {
+                        const dpDAO = new DescuentoProductoDAO(desc.idDescuento);
+                        const respDP = await dpDAO.findRange(0, 50);
+                        const itemsDP = respDP.datos || [];
+
+                        const idTipo = desc.idTipoDescuento?.idTipoDescuento
+                            || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
+                        const tipoInfo = idTipo ? tiposActivos.get(idTipo) : null;
+                        const maxPermitido = Number(tipoInfo?.descuentoMaximo || 100);
+
+                        itemsDP.forEach(dp => {
+                            if (!this._estaVigente(dp.fechaDesde, dp.fechaHasta, ahora)) return;
+
+                            const idProd = dp.idProducto?.idProducto
+                                || (typeof dp.idProducto === 'string' ? dp.idProducto : null);
+                            if (!idProd) return;
+
+                            const valorCrudo = Number(dp.valor || 0);
+                            const porcentaje = Math.max(0, Math.min(valorCrudo, maxPermitido));
+                            if (porcentaje <= 0) return;
+
+                            const anterior = mapaPorProducto.get(idProd);
+                            if (!anterior || porcentaje > anterior.porcentaje) {
+                                mapaPorProducto.set(idProd, {
+                                    idDescuento: desc.idDescuento,
+                                    nombreDescuento: desc.nombre || 'Promoción',
+                                    tipoDescuento: tipoInfo?.nombre || '',
+                                    porcentaje,
+                                    observaciones: dp.observaciones || desc.observaciones || ''
+                                });
+                            }
+                        });
+                    } catch (e) {
+                        console.warn(`No se pudieron cargar productos del descuento ${desc.nombre}:`, e);
+                    }
+                })
+            );
+        } catch (err) {
+            console.warn('No se pudieron cargar descuentos desde Cafefe-api:', err);
+        }
+
+        return mapaPorProducto;
+    }
+
     async _cargarDatosDesdeAPI() {
         this.cargando = true;
         this._dibujar();
 
         try {
-            const [respCategorias, respProductos, respCar, respTipoCar] = await Promise.all([
+            const [respCategorias, respProductos, respCar, respTipoCar, mapaDescuentos] = await Promise.all([
                 this.tipoProductoDAO.findRange(0, 50),
                 this.productoDAO.findRange(0, 50),
                 this.caracteristicaDAO.findRange(0, 50),
-                this.tipoCaracteristicaDAO.findRange(0, 50)
+                this.tipoCaracteristicaDAO.findRange(0, 50),
+                this._cargarMapaDescuentosVigentes()
             ]);
 
             this._limpiarError();
@@ -89,6 +183,14 @@ class PedidoModel extends HTMLElement {
             const listaProductos = (respProductos.datos || []).filter(p => p.activo !== false);
             this.caracteristicas = (respCar.datos || []).filter(c => c.activo !== false);
             this.tiposCaracteristica = (respTipoCar.datos || []).filter(tc => tc.activo !== false);
+
+            // Localizar la categoría "Descuentos" (en BD o virtual) para poblarla dinámicamente
+            const catDescuentosBD = categoriasRaw.find(
+                c => c.nombre.trim().toLowerCase().includes('descuento')
+            );
+            this.idCategoriaDescuentos = catDescuentosBD
+                ? catDescuentosBD.idTipoProducto
+                : 'VIRTUAL_DESCUENTOS';
 
             // Unificar cualquier categoría hija de bebidas bajo "Bebidas" en el sidebar
             const catBebidasMaestra = categoriasRaw.find(
@@ -106,13 +208,27 @@ class PedidoModel extends HTMLElement {
                 }
             });
 
-            this.categorias = categoriasRaw
+            const categoriasNormalizadas = categoriasRaw
                 .filter(cat => !mapaRedireccionBebidas.has(cat.idTipoProducto))
                 .map(cat => ({
                     ...cat,
-                    nombre: cat.idTipoProducto === catBebidasMaestra?.idTipoProducto ? 'Bebidas' : cat.nombre,
+                    nombre: cat.idTipoProducto === catBebidasMaestra?.idTipoProducto
+                        ? 'Bebidas'
+                        : (cat.idTipoProducto === this.idCategoriaDescuentos ? 'Descuentos' : cat.nombre),
                     imagen: './resources/img/logo_cafe.png'
                 }));
+
+            if (!catDescuentosBD) {
+                categoriasNormalizadas.push({
+                    idTipoProducto: this.idCategoriaDescuentos,
+                    nombre: 'Descuentos',
+                    activo: true,
+                    observaciones: 'Productos en promoción vigente',
+                    imagen: './resources/img/logo_cafe.png'
+                });
+            }
+
+            this.categorias = categoriasNormalizadas;
 
             const productosEnriquecidos = await Promise.all(
                 listaProductos.map(async (prod) => {
@@ -125,14 +241,21 @@ class PedidoModel extends HTMLElement {
                         const respRel = await ptpDAO.findRange(0, 50);
                         const relaciones = respRel.datos || [];
 
-                        if (relaciones.length > 0) {
-                            const primera = relaciones[0];
-                            let idCat =
-                                primera.idTipoProducto?.idTipoProducto ||
-                                primera.tipoProducto?.idTipoProducto ||
-                                (typeof primera.idTipoProducto === 'string' ? primera.idTipoProducto : null);
+                        // Ignorar asignaciones sueltas que apuntaban a la vieja categoría "Descuentos"
+                        const relValida = relaciones.find(r => {
+                            const idC = r.idTipoProducto?.idTipoProducto
+                                || r.tipoProducto?.idTipoProducto
+                                || (typeof r.idTipoProducto === 'string' ? r.idTipoProducto : null);
+                            return idC && idC !== this.idCategoriaDescuentos;
+                        });
 
-                            subcategoria = primera.observaciones || null;
+                        if (relValida) {
+                            let idCat =
+                                relValida.idTipoProducto?.idTipoProducto ||
+                                relValida.tipoProducto?.idTipoProducto ||
+                                (typeof relValida.idTipoProducto === 'string' ? relValida.idTipoProducto : null);
+
+                            subcategoria = relValida.observaciones || null;
 
                             if (mapaRedireccionBebidas.has(idCat)) {
                                 const info = mapaRedireccionBebidas.get(idCat);
@@ -152,12 +275,24 @@ class PedidoModel extends HTMLElement {
                         console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
                     }
 
+                    // Aplicar descuento vigente si el producto está en descuento_producto
+                    const infoDesc = mapaDescuentos.get(prod.idProducto) || null;
+                    const precioBase = Number(prod.precioSugerido || 0);
+                    const precioFinal = infoDesc
+                        ? Number((precioBase * (1 - infoDesc.porcentaje / 100)).toFixed(2))
+                        : precioBase;
+
                     return {
                         ...prod,
                         idTipoProducto,
                         nombreTipoProducto,
                         subcategoria: subcategoria || 'Todos',
-                        imagen: './resources/img/logo_cafe.png'
+                        imagen: './resources/img/logo_cafe.png',
+                        precioOriginal: precioBase,
+                        precioSugerido: precioFinal,
+                        tieneDescuento: Boolean(infoDesc),
+                        nombreDescuento: infoDesc?.nombreDescuento || null,
+                        porcentajeDescuento: infoDesc?.porcentaje || 0
                     };
                 })
             );
@@ -265,6 +400,8 @@ class PedidoModel extends HTMLElement {
                     nombre: producto.nombre,
                     imagen: producto.imagen,
                     precio: Number(producto.precioSugerido || 0),
+                    precioOriginal: Number(producto.precioOriginal || producto.precioSugerido || 0),
+                    nombreDescuento: producto.nombreDescuento || null,
                     personalizacion,
                     cantidad
                 }
@@ -305,10 +442,12 @@ class PedidoModel extends HTMLElement {
         return null;
     }
 
-    async _confirmarYEnviarOrden({ items }) {
+    async _confirmarYEnviarOrden({ items, nombreCliente }) {
         if (this._enviandoOrden) return;
         this._enviandoOrden = true;
         this._limpiarError();
+
+        const clienteLimpio = (nombreCliente || '').trim() || 'Cliente en línea';
 
         try {
             const idEmpleadoRolValido = await this._obtenerIdEmpleadoRolPorDefecto();
@@ -318,10 +457,26 @@ class PedidoModel extends HTMLElement {
                 };
             }
 
-            // 1. Crear Orden (OrdenResource exige idEmpleadoRol anidado y idOrden ausente)
+            const resumenProductos = items
+                .map(item => {
+                    const detalleCar = item.personalizacion && item.personalizacion !== 'Estándar'
+                        ? ` (${item.personalizacion})`
+                        : '';
+                    const etiquetaDesc = item.nombreDescuento ? ` [${item.nombreDescuento}]` : '';
+                    return `${item.cantidad}x ${item.nombre}${detalleCar}${etiquetaDesc}`;
+                })
+                .join(', ');
+
+            const observacionesOrden = [
+                `Cliente: ${clienteLimpio}`,
+                'Para llevar',
+                resumenProductos
+            ].filter(Boolean).join(' | ');
+
             const nuevaOrden = new Orden();
             nuevaOrden.idEmpleadoRol = { idEmpleadoRol: idEmpleadoRolValido };
             nuevaOrden.fechaCreacion = new Date().toISOString();
+            nuevaOrden.observaciones = observacionesOrden;
             delete nuevaOrden.idOrden;
 
             const respOrden = await this.ordenDAO.create(nuevaOrden);
@@ -333,23 +488,27 @@ class PedidoModel extends HTMLElement {
                 };
             }
 
-            // 2. Insertar cada ítem en POST /orden/{id_orden}/producto
             const ordenProductoDAO = new OrdenProductoDAO(idOrdenGenerado);
 
             for (const item of items) {
                 for (let i = 0; i < item.cantidad; i++) {
+                    const obsItem = [
+                        item.personalizacion || 'Estándar',
+                        item.nombreDescuento ? `Promo: ${item.nombreDescuento}` : null
+                    ].filter(Boolean).join(' | ');
+
                     const detalle = {
                         idProducto: { idProducto: item.idProducto },
                         precio: item.precio,
-                        observaciones: item.personalizacion || 'Estándar'
+                        observaciones: obsItem
                     };
                     await ordenProductoDAO.create(detalle);
                 }
             }
 
-            // 3. Limpiar carrito y pasar a vista de comprobante
             this.carrito = [];
             this._ordenConfirmadaId = idOrdenGenerado;
+            this._clienteConfirmado = clienteLimpio;
             this.pasoActual = 5;
             this._dibujar();
         } catch (err) {
@@ -365,7 +524,7 @@ class PedidoModel extends HTMLElement {
             this._mostrarError(
                 'Error al confirmar la orden',
                 { status, mensaje },
-                () => this._confirmarYEnviarOrden({ items })
+                () => this._confirmarYEnviarOrden({ items, nombreCliente: clienteLimpio })
             );
         } finally {
             this._enviandoOrden = false;
@@ -477,6 +636,7 @@ class PedidoModel extends HTMLElement {
             catalogo.categorias = this.categorias;
             catalogo.productos = this.productos;
             catalogo.categoriaActivaId = this.categoriaSeleccionadaId;
+            catalogo.idCategoriaDescuentos = this.idCategoriaDescuentos;
             catalogo.cantidadCarrito = this._totalItemsCarrito();
 
             catalogo.addEventListener('seleccionar-producto', (e) => {
@@ -529,7 +689,7 @@ class PedidoModel extends HTMLElement {
             contenedor.innerHTML = `
                 <section class="tarjeta-confirmacion">
                     <div class="icono-exito">✓</div>
-                    <h2 class="titulo-exito">¡Orden Confirmada!</h2>
+                    <h2 class="titulo-exito">¡Orden Confirmada, ${this._clienteConfirmado}!</h2>
                     <p class="texto-exito">Tu pedido quedó registrado como <strong>pendiente</strong> para pagar y recoger en el local.</p>
                     <div class="codigo-orden">Código de orden: #${codigoCorto}</div>
                     <button type="button" class="btn-nueva-orden" id="btnNuevaOrden">Hacer otro pedido</button>
@@ -537,6 +697,7 @@ class PedidoModel extends HTMLElement {
             `;
             contenedor.querySelector('#btnNuevaOrden').addEventListener('click', () => {
                 this._ordenConfirmadaId = null;
+                this._clienteConfirmado = '';
                 this.pasoActual = 1;
                 this._dibujar();
             });

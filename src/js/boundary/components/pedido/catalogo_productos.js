@@ -7,6 +7,7 @@ class CatalogoProductos extends HTMLElement {
         this._categorias = [];
         this._productos = [];
         this._categoriaActivaId = null;
+        this._idCategoriaDescuentos = null;
         this._subcategoriaActiva = 'Todas';
         this._cantidadCarrito = 0;
         this._modoLectura = false;
@@ -46,6 +47,15 @@ class CatalogoProductos extends HTMLElement {
         return this._categoriaActivaId;
     }
 
+    set idCategoriaDescuentos(id) {
+        this._idCategoriaDescuentos = id;
+        this._dibujar();
+    }
+
+    get idCategoriaDescuentos() {
+        return this._idCategoriaDescuentos;
+    }
+
     set productos(valor) {
         this._productos = Array.isArray(valor) ? valor : [];
         this._dibujar();
@@ -68,6 +78,15 @@ class CatalogoProductos extends HTMLElement {
         this._dibujar();
     }
 
+    _esVistaDescuentos() {
+        if (!this._categoriaActivaId) return false;
+        if (this._idCategoriaDescuentos && this._categoriaActivaId === this._idCategoriaDescuentos) {
+            return true;
+        }
+        const catActual = this._categorias.find(c => c.idTipoProducto === this._categoriaActivaId);
+        return Boolean(catActual && catActual.nombre.trim().toLowerCase().includes('descuento'));
+    }
+
     _cambiarCategoria(idCategoria) {
         if (this._categoriaActivaId === idCategoria) return;
         this._categoriaActivaId = idCategoria;
@@ -83,11 +102,25 @@ class CatalogoProductos extends HTMLElement {
 
     _obtenerProductosPorCategoria() {
         if (!this._categoriaActivaId) return this._productos;
-        return this._productos.filter(p => p.idTipoProducto === this._categoriaActivaId);
+        if (this._esVistaDescuentos()) {
+            return this._productos.filter(p => p.tieneDescuento === true);
+        }
+        return this._productos.filter(
+            p => p.idTipoProducto === this._categoriaActivaId && !p.tieneDescuento
+        );
     }
 
     _obtenerSubcategorias() {
         const prodsCat = this._obtenerProductosPorCategoria();
+        if (this._esVistaDescuentos()) {
+            const campanas = new Set(
+                prodsCat
+                    .map(p => (p.nombreDescuento || '').trim())
+                    .filter(Boolean)
+            );
+            return ['Todas', ...Array.from(campanas)];
+        }
+
         const subs = new Set(
             prodsCat
                 .map(p => (p.subcategoria || '').trim())
@@ -99,6 +132,9 @@ class CatalogoProductos extends HTMLElement {
     _obtenerProductosFiltrados() {
         const prodsCat = this._obtenerProductosPorCategoria();
         if (this._subcategoriaActiva === 'Todas') return prodsCat;
+        if (this._esVistaDescuentos()) {
+            return prodsCat.filter(p => (p.nombreDescuento || '').trim() === this._subcategoriaActiva);
+        }
         return prodsCat.filter(p => (p.subcategoria || '').trim() === this._subcategoriaActiva);
     }
 
@@ -122,6 +158,32 @@ class CatalogoProductos extends HTMLElement {
         if (this._estructuraCreada) return;
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/catalogo_productos.css">
+            <style>
+                .badge-descuento {
+                    display: inline-block;
+                    background: var(--color-acento, #C8322B);
+                    color: var(--texto-claro, #FFFFFF);
+                    font-size: 0.72rem;
+                    font-weight: 800;
+                    padding: 0.2rem 0.55rem;
+                    border-radius: 999px;
+                    margin-bottom: 0.35rem;
+                    letter-spacing: 0.02em;
+                }
+                .precios-grupo {
+                    display: flex;
+                    flex-direction: column;
+                    line-height: 1.15;
+                }
+                .precio-original-tachado {
+                    font-size: 0.8rem;
+                    color: var(--texto-secundario, #6e5740);
+                    text-decoration: line-through;
+                }
+                .prod-precio-promo {
+                    color: var(--color-acento, #C8322B);
+                }
+            </style>
             <div class="catalogo-layout" id="catalogoLayout">
                 <aside class="sidebar-categorias" id="sidebarCategorias">
                     <h2 class="sidebar-titulo">Categorías</h2>
@@ -161,7 +223,7 @@ class CatalogoProductos extends HTMLElement {
             listaSidebar.appendChild(li);
         });
 
-        // 2. Actualizar las pestañas superiores (Todas + subcategorías reales de esa categoría)
+        // 2. Actualizar las pestañas superiores
         const tabsContainer = this._root.getElementById('tabsSubcategorias');
         tabsContainer.innerHTML = '';
         subcategorias.forEach(sub => {
@@ -194,7 +256,9 @@ class CatalogoProductos extends HTMLElement {
         if (productosVisibles.length === 0) {
             const vacio = document.createElement('p');
             vacio.className = 'estado-vacio';
-            vacio.textContent = 'No hay productos en esta sección.';
+            vacio.textContent = this._esVistaDescuentos()
+                ? 'No hay productos con descuento vigente en este momento.'
+                : 'No hay productos en esta sección.';
             gridProductos.appendChild(vacio);
             return;
         }
@@ -204,19 +268,35 @@ class CatalogoProductos extends HTMLElement {
             card.id = `cardProd-${prod.idProducto}`;
             card.style.cursor = 'pointer';
 
+            const tieneDesc = prod.tieneDescuento === true && Number(prod.precioOriginal) > Number(prod.precioSugerido);
             const precioFormateado = Number(prod.precioSugerido || 0).toFixed(2);
+            const precioOriginalFormateado = Number(prod.precioOriginal || 0).toFixed(2);
             const imagenSrc = prod.imagen || './resources/img/logo_cafe.png';
+
+            const badgeHtml = tieneDesc
+                ? `<span class="badge-descuento">-${prod.porcentajeDescuento}% · ${prod.nombreDescuento || 'Promoción'}</span>`
+                : '';
+
+            const bloquePrecioHtml = tieneDesc
+                ? `
+                    <div class="precios-grupo">
+                        <span class="precio-original-tachado">$${precioOriginalFormateado}</span>
+                        <span class="prod-precio prod-precio-promo">$${precioFormateado}</span>
+                    </div>
+                `
+                : `<span class="prod-precio">$${precioFormateado}</span>`;
 
             card.innerHTML = `
                 <div slot="titulo" class="prod-img-wrap">
                     <img src="${imagenSrc}" alt="${prod.nombre}" class="prod-img">
                 </div>
                 <div slot="contenido" class="prod-info">
+                    ${badgeHtml}
                     <h3 class="prod-nombre">${prod.nombre}</h3>
                     <p class="prod-desc">${prod.comentarios || ''}</p>
                 </div>
                 <div slot="pie" class="prod-footer">
-                    <span class="prod-precio">$${precioFormateado}</span>
+                    ${bloquePrecioHtml}
                     ${!this._modoLectura ? `
                         <button type="button" class="btn-agregar-card" id="btnAdd-${prod.idProducto}">
                             Agregar

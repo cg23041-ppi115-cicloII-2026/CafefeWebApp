@@ -84,6 +84,15 @@
     color: var(--texto-principal, #4B3621);
 }
 
+.carrito-vacio {
+    padding: 2rem;
+    text-align: center;
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    border: 1px solid var(--borde-suave, #d8c6a8);
+    border-radius: var(--radio-panel, 14px);
+    color: var(--texto-secundario, #6e5740);
+}
+
 .pedido-panel {
     display: flex;
     flex-direction: column;
@@ -120,6 +129,46 @@
     border: none;
     border-top: 1px solid var(--borde-suave, #d8c6a8);
     margin: 1rem 0;
+}
+
+.campo-cliente {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 1rem;
+}
+
+.label-cliente {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--texto-principal, #4B3621);
+}
+
+.input-cliente {
+    padding: 0.65rem 0.85rem;
+    border: 2px solid var(--borde-activo, #4B3621);
+    border-radius: var(--radio-tarjeta, 10px);
+    background-color: var(--bg-tarjeta, #FFFFFF);
+    color: var(--texto-principal, #4B3621);
+    font-family: inherit;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.input-cliente:focus {
+    outline: none;
+    background-color: var(--bg-contenedor, #f6efe2);
+}
+
+.input-cliente.input-error {
+    border-color: var(--color-acento, #C8322B);
+}
+
+.msg-error-campo {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-acento, #C8322B);
 }
 
 .aviso-local {

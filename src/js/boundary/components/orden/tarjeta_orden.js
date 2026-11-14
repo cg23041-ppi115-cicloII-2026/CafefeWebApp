@@ -12,6 +12,7 @@ class TarjetaOrden extends HTMLElement {
     set datos(valor) {
         this._orden = valor;
         this._dibujar();
+        this._iniciarTimer();
     }
 
     get datos() {
@@ -38,21 +39,30 @@ class TarjetaOrden extends HTMLElement {
         if (this._intervaloTiempo) clearInterval(this._intervaloTiempo);
         this._intervaloTiempo = setInterval(() => {
             this._actualizarIndicadorTiempo();
-        }, 30000); // recalcular cada 30 segundos
+        }, 30000);
+    }
+
+    _parsearFecha(fecha) {
+        if (!fecha) return null;
+        if (Array.isArray(fecha)) {
+            const [anio, mes, dia, hora = 0, min = 0, seg = 0] = fecha;
+            return new Date(anio, mes - 1, dia, hora, min, seg);
+        }
+        const limpia = String(fecha).trim().replace(/\[.*\]$/, "");
+        const d = new Date(limpia);
+        return Number.isNaN(d.getTime()) ? null : d;
     }
 
     _calcularTiempoEspera() {
-        if (!this._orden?.fechaCreacion) {
-            return { texto: "", clase: "" };
-        }
-        const creacion = new Date(this._orden.fechaCreacion);
-        if (isNaN(creacion.getTime())) {
+        const fecha = this._orden?.fechaCreacion || this._orden?.fecha_creacion;
+        const creacion = this._parsearFecha(fecha);
+        if (!creacion) {
             return { texto: "", clase: "" };
         }
         const diffMs = Date.now() - creacion.getTime();
         const diffMin = Math.max(0, Math.floor(diffMs / 60000));
 
-        let texto = diffMin === 0 ? "Hace un momento" : `Hace ${diffMin} min`;
+        const texto = diffMin === 0 ? "Hace un momento" : `Hace ${diffMin} min`;
         let clase = "tiempo-verde";
 
         if (diffMin >= 15) {
@@ -74,44 +84,26 @@ class TarjetaOrden extends HTMLElement {
         }
     }
 
-    _parsearObservaciones() {
-        const obs = this._orden.observaciones || "";
-        const segmentos = obs.split("|").map(s => s.trim()).filter(Boolean);
-        let nombreCliente = null;
-        let tipoPedido = null;
-        for (const seg of segmentos) {
-            if (seg.startsWith("Cliente: ")) {
-                nombreCliente = seg.slice("Cliente: ".length).trim();
-            }
-            if (seg === "Para llevar" || seg === "Para mesa") {
-                tipoPedido = seg;
-            }
-        }
-        return { nombreCliente, tipoPedido };
-    }
-
     _dibujar() {
         if (!this._orden) return;
 
         const uidCorto = String(this._orden.idOrden || "0000").slice(-5).toUpperCase();
-        const { nombreCliente, tipoPedido } = this._parsearObservaciones();
-        const cliente = nombreCliente || this._orden.cliente || `Pedido #${uidCorto}`;
         const esPendiente = this._modo === "pendiente";
         const textoBoton = esPendiente ? "Tomar y Preparar" : "Marcar Entregado";
         const nombreEvento = esPendiente ? "tomar-orden" : "entregar-orden";
-        const tipoBadge = tipoPedido ? `<span class="tiempo-badge tiempo-verde">${tipoPedido}</span>` : "";
         const { texto: textoTiempo, clase: claseTiempo } = this._calcularTiempoEspera();
-        const tiempoBadgeHTML = textoTiempo ? `<span id="badgeTiempo" class="tiempo-badge ${claseTiempo}">${textoTiempo}</span>` : "";
+        const tiempoBadgeHTML = textoTiempo
+            ? `<span id="badgeTiempo" class="tiempo-badge ${claseTiempo}">${textoTiempo}</span>`
+            : "";
 
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/tarjeta_orden.css">
             <tarjeta-horizontal>
                 <div slot="titulo">
                     <div class="uid-badge">ORDEN #${uidCorto}</div>
-                    <div class="cliente-nombre">${cliente}</div>
-                    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px;">
+                    <div class="cliente-nombre">Pedido #${uidCorto}</div>
+                    <div class="badges-contenedor">
                         ${tiempoBadgeHTML}
-                        ${tipoBadge}
                     </div>
                 </div>
                 <div slot="contenido">
@@ -124,9 +116,11 @@ class TarjetaOrden extends HTMLElement {
                         <button type="button" class="btn-accion ${esPendiente ? "btn-preparar" : "btn-entregar"}" id="btnAccion">
                             ${textoBoton}
                         </button>
-                        <button type="button" class="btn-accion btn-cancelar" id="btnCancelar">
-                            Cancelar
-                        </button>
+                        ${esPendiente ? `
+                            <button type="button" class="btn-accion btn-cancelar" id="btnCancelar">
+                                Cancelar
+                            </button>
+                        ` : ""}
                     </div>
                 </div>
             </tarjeta-horizontal>
@@ -140,13 +134,16 @@ class TarjetaOrden extends HTMLElement {
             }));
         });
 
-        this._root.querySelector("#btnCancelar").addEventListener("click", () => {
-            this.dispatchEvent(new CustomEvent("cancelar-orden", {
-                detail: this._orden,
-                bubbles: true,
-                composed: true
-            }));
-        });
+        const btnCancelar = this._root.querySelector("#btnCancelar");
+        if (btnCancelar) {
+            btnCancelar.addEventListener("click", () => {
+                this.dispatchEvent(new CustomEvent("cancelar-orden", {
+                    detail: this._orden,
+                    bubbles: true,
+                    composed: true
+                }));
+            });
+        }
     }
 }
 

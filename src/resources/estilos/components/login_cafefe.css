@@ -1,7 +1,7 @@
 :host {
     display: block;
     width: 100%;
-    min-height: 100vh;
+    min-height: calc(100vh - 110px);
     font-family: var(--fuente-principal, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
     color: var(--texto-principal, #4B3621);
 }
@@ -10,27 +10,32 @@
     box-sizing: border-box;
 }
 
-.login-split {
+.oculto {
+    display: none !important;
+}
+
+.login-wrapper {
     display: grid;
     grid-template-columns: 46% 54%;
-    min-height: 100vh;
+    min-height: calc(100vh - 110px);
     width: 100%;
 }
 
-.panel-marca {
+/* Panel izquierdo de marca */
+.login-brand-panel {
     position: relative;
     overflow: hidden;
     background: linear-gradient(155deg, #5a4128 0%, var(--coffee-brown, #4B3621) 55%, #342415 100%);
     color: var(--vanilla-beige, #EDE0C8);
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 3rem 2.25rem;
     text-align: center;
 }
 
-.logo-watermark {
+.watermark-logo {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -45,37 +50,28 @@
     filter: grayscale(20%);
 }
 
-.marca-contenido {
+.brand-content {
     position: relative;
     z-index: 1;
-    margin: auto 0;
     max-width: 380px;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-.logo-badge {
+.brand-logo-main {
     width: 96px;
     height: 96px;
     border-radius: 50%;
     background-color: var(--vanilla-beige, #EDE0C8);
     border: 3px solid rgba(255, 255, 255, 0.25);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 12px;
     margin-bottom: 1.25rem;
+    object-fit: contain;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
 }
 
-.logo-principal {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.marca-titulo {
+.brand-title {
     margin: 0;
     font-size: 2.75rem;
     font-weight: 900;
@@ -83,57 +79,16 @@
     color: var(--blanco-puro, #FFFFFF);
 }
 
-.marca-subtitulo {
-    margin: 0.35rem 0 1rem 0;
-    font-size: 1.15rem;
+.brand-subtitle {
+    margin: 0.5rem 0 0 0;
+    font-size: 1.05rem;
     font-weight: 600;
+    line-height: 1.45;
     color: var(--vanilla-beige, #EDE0C8);
 }
 
-.marca-descripcion {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: rgba(237, 224, 200, 0.82);
-}
-
-.marca-pie {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 340px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.65rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(237, 224, 200, 0.18);
-}
-
-.cliente-hint {
-    font-size: 0.82rem;
-    color: rgba(237, 224, 200, 0.85);
-}
-
-.btn-cliente {
-    width: 100%;
-    padding: 0.85rem 1.5rem;
-    border: 2px solid var(--vanilla-beige, #EDE0C8);
-    border-radius: 999px;
-    background-color: var(--vanilla-beige, #EDE0C8);
-    color: var(--coffee-brown, #4B3621);
-    font-size: 0.98rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: transform 0.18s ease, background-color 0.18s ease;
-}
-
-.btn-cliente:hover {
-    background-color: var(--blanco-puro, #FFFFFF);
-    transform: translateY(-2px);
-}
-
-.panel-formulario {
+/* Panel derecho de formulario */
+.login-form-panel {
     background-color: var(--bg-contenedor, #f6efe2);
     display: flex;
     align-items: center;
@@ -141,7 +96,7 @@
     padding: 2.5rem 2rem;
 }
 
-.form-contenedor {
+.login-card {
     width: 100%;
     max-width: 430px;
     background-color: var(--bg-tarjeta, #FFFFFF);
@@ -151,39 +106,36 @@
     box-shadow: var(--sombra-elevada, 0 4px 12px rgba(75, 54, 33, 0.16));
 }
 
-.form-cabecera {
+.login-header {
     margin-bottom: 1.5rem;
 }
 
-.etiqueta-rol {
-    display: inline-block;
-    font-size: 0.75rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-acento, #C8322B);
-    margin-bottom: 0.35rem;
-}
-
-.form-titulo {
+.login-header h2 {
     margin: 0 0 0.4rem 0;
     font-size: 1.75rem;
     font-weight: 800;
     color: var(--texto-principal, #4B3621);
 }
 
-.form-instruccion {
+.login-header p {
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.45;
     color: var(--texto-secundario, #6e5740);
 }
 
-.zona-error {
+.alerta-login {
     margin-bottom: 1rem;
+    padding: 0.75rem 0.95rem;
+    border-radius: 10px;
+    background-color: var(--estado-error-bg, #fdecea);
+    color: var(--estado-error-txt, #C8322B);
+    border: 1px solid var(--estado-error-borde, #C8322B);
+    font-size: 0.88rem;
+    font-weight: 600;
 }
 
-.login-form {
+form {
     display: flex;
     flex-direction: column;
     gap: 1.15rem;
@@ -195,13 +147,14 @@
     gap: 0.4rem;
 }
 
-.campo-label {
+.campo-grupo label {
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--texto-principal, #4B3621);
 }
 
-.campo-input {
+.campo-grupo input[type="text"],
+.campo-grupo input[type="password"] {
     width: 100%;
     padding: 0.8rem 0.95rem;
     border: 1.5px solid var(--borde-suave, #d8c6a8);
@@ -213,40 +166,44 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.campo-input:focus {
+.campo-grupo input:focus {
     outline: none;
     border-color: var(--coffee-brown, #4B3621);
     box-shadow: 0 0 0 3px rgba(75, 54, 33, 0.14);
 }
 
-.input-uuid-wrap {
+.input-password-box {
     position: relative;
     display: flex;
     align-items: center;
 }
 
-.input-con-boton {
-    padding-right: 4.8rem;
+.input-password-box input {
+    padding-right: 3.2rem;
 }
 
-.btn-ver-uuid {
+.btn-toggle-eye {
     position: absolute;
     right: 0.55rem;
-    padding: 0.35rem 0.6rem;
+    padding: 0.35rem 0.55rem;
     border: 1px solid var(--borde-suave, #d8c6a8);
     border-radius: 7px;
     background-color: var(--vanilla-beige-suave, #f6efe2);
     color: var(--texto-principal, #4B3621);
-    font-size: 0.78rem;
-    font-weight: 700;
+    font-size: 0.9rem;
     cursor: pointer;
 }
 
-.btn-ver-uuid:hover {
+.btn-toggle-eye:hover {
     background-color: var(--vanilla-beige, #EDE0C8);
 }
 
-.checkbox-fila {
+.opciones-fila {
+    display: flex;
+    align-items: center;
+}
+
+.check-recordar {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
@@ -256,14 +213,14 @@
     user-select: none;
 }
 
-.checkbox-input {
+.check-recordar input[type="checkbox"] {
     width: 17px;
     height: 17px;
     accent-color: var(--coffee-brown, #4B3621);
     cursor: pointer;
 }
 
-.btn-ingresar {
+.btn-login-submit {
     margin-top: 0.35rem;
     width: 100%;
     padding: 0.95rem 1.5rem;
@@ -278,56 +235,78 @@
     transition: background-color 0.2s, transform 0.15s;
 }
 
-.btn-ingresar:hover:not(:disabled) {
+.btn-login-submit:hover:not(:disabled) {
     background-color: var(--color-acento-hover, #a82822);
     transform: translateY(-1px);
 }
 
-.btn-ingresar:disabled {
+.btn-login-submit:disabled {
     opacity: 0.65;
     cursor: not-allowed;
 }
 
+.divisor-acceso {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 1.35rem 0 1rem;
+    color: var(--texto-secundario, #6e5740);
+    font-size: 0.85rem;
+}
+
+.divisor-acceso::before,
+.divisor-acceso::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid var(--borde-suave, #d8c6a8);
+}
+
+.divisor-acceso span {
+    padding: 0 0.75rem;
+}
+
+.btn-cliente-directo {
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+    border: 2px solid var(--coffee-brown, #4B3621);
+    border-radius: 999px;
+    background-color: var(--vanilla-beige, #EDE0C8);
+    color: var(--coffee-brown, #4B3621);
+    font-size: 0.96rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.btn-cliente-directo:hover {
+    background-color: #e4d2b3;
+    transform: translateY(-1px);
+}
+
 @media (max-width: 850px) {
-    .login-split {
+    .login-wrapper {
         grid-template-columns: 1fr;
-        min-height: 100vh;
     }
-
-    .panel-marca {
+    .login-brand-panel {
         padding: 2rem 1.5rem;
-        gap: 1.25rem;
     }
-
-    .logo-watermark {
+    .watermark-logo {
         width: 85%;
         max-width: 340px;
     }
-
-    .logo-badge {
+    .brand-logo-main {
         width: 72px;
         height: 72px;
         margin-bottom: 0.75rem;
     }
-
-    .marca-titulo {
+    .brand-title {
         font-size: 2rem;
     }
-
-    .marca-descripcion {
-        display: none;
-    }
-
-    .marca-pie {
-        padding-top: 1rem;
-    }
-
-    .panel-formulario {
+    .login-form-panel {
         padding: 1.75rem 1.25rem 2.5rem;
         align-items: flex-start;
     }
-
-    .form-contenedor {
+    .login-card {
         padding: 1.75rem 1.35rem;
     }
 }

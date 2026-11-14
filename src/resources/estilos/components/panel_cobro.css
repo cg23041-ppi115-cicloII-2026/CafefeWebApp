@@ -339,3 +339,30 @@
     opacity: 0.45;
     cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+    .grid-pagos {
+        grid-template-columns: 1fr !important;
+        gap: 1rem;
+    }
+
+    .seccion-titulo {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .tpv-footer {
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .tpv-footer button {
+        width: 100%;
+        min-height: 46px;
+    }
+
+    .tpv-footer .btn-finalizar {
+        order: -1;
+    }
+}

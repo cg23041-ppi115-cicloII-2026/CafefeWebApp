@@ -7,6 +7,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .zona-errores {
@@ -29,7 +30,8 @@
     color: var(--texto-principal);
     border: 1.5px solid var(--borde-suave);
     border-radius: 8px;
-    padding: 0.55rem 1.1rem;
+    padding: 0.65rem 1.1rem;
+    min-height: 42px;
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
@@ -56,10 +58,9 @@
     align-items: start;
 }
 
-@media (max-width: 900px) {
-    .layout-tpv {
-        grid-template-columns: 1fr;
-    }
+.columna-ordenes,
+.columna-cobro {
+    min-width: 0;
 }
 
 .columna-ordenes {
@@ -74,6 +75,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     margin-bottom: 1rem;
     border-bottom: 2px solid var(--bg-app);
     padding-bottom: 0.65rem;
@@ -90,10 +92,12 @@
     color: var(--texto-principal);
     border: 1px solid var(--borde-suave);
     border-radius: 6px;
-    padding: 5px 10px;
+    padding: 6px 12px;
+    min-height: 36px;
     font-weight: 700;
     font-size: 0.85rem;
     cursor: pointer;
+    white-space: nowrap;
     transition: background-color 0.2s ease;
 }
 
@@ -138,25 +142,24 @@
     font-size: 0.82rem;
     color: var(--texto-secundario);
     margin: 4px 0 10px 0;
+    word-break: break-word;
 }
 
 .btn-seleccionar {
     width: 100%;
-    padding: 7px;
+    padding: 9px 10px;
+    min-height: 40px;
     border-radius: 6px;
     border: 1.5px solid var(--color-primario);
     background-color: var(--bg-tarjeta);
     color: var(--color-primario);
     font-weight: 700;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
-.btn-seleccionar:hover {
-    background-color: var(--color-primario);
-    color: var(--texto-claro);
-}
-
+.btn-seleccionar:hover,
 .tarjeta-cobro.activa .btn-seleccionar {
     background-color: var(--color-primario);
     color: var(--texto-claro);
@@ -167,6 +170,47 @@
     color: var(--texto-secundario);
     font-size: 0.9rem;
     padding: 1.5rem 0;
+}
+
+/* ==================== TABLET (<= 960px) ==================== */
+@media (max-width: 960px) {
+    .layout-tpv {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+        gap: 1.25rem;
+    }
+
+    .lista-ordenes {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.75rem;
+    }
+}
+
+/* ==================== CELULAR (<= 600px) ==================== */
+@media (max-width: 600px) {
+    .zona-errores,
+    .subnav-tpv {
+        padding: 0 0.85rem;
+    }
+
+    .layout-tpv {
+        padding: 0.85rem;
+        gap: 1rem;
+    }
+
+    .columna-ordenes {
+        padding: 1rem;
+    }
+
+    .lista-ordenes {
+        grid-template-columns: 1fr;
+    }
+
+    .subnav-tpv .btn-subnav {
+        flex: 1 1 100%;
+        text-align: center;
+    }
 }
 
 @media print {

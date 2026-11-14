@@ -210,3 +210,26 @@ button:hover:not(:disabled) {
     background-color: var(--apple-red, #C8322B);
     color: var(--blanco-puro, #FFFFFF);
 }
+
+@media (max-width: 600px) {
+    .cabecera-proceso {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .acciones-proceso {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .acciones-proceso button {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .acciones-proceso .btn-completar {
+        order: -1;
+    }
+}

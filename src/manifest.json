@@ -1,0 +1,36 @@
+{
+    "name": "Cafefe",
+    "short_name": "Cafefe",
+    "start_url": "./index.html",
+    "description": "Cafefe ofrece sistema de Punto de Venta y gestión de órdenes para la cafetería. Permite administrar pedidos en tiempo real entre cocina y caja con soporte offline.",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#F4F6F8",
+    "theme_color": "#2C3E50",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "./resources/img/logo_cafe_192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "./resources/img/logo_cafe_512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "./resources/img/pwa.png",
+            "sizes": "1408x768",
+            "type": "image/png",
+            "form_factor": "wide"
+        },
+        {
+            "src": "./resources/img/pwa_slim.png",
+            "sizes": "800x436",
+            "type": "image/png"
+        }
+    ]
+}

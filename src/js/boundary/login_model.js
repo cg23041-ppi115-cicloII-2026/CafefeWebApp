@@ -66,14 +66,23 @@ class LoginModel extends HTMLElement {
 
         switch (sesion.vistaInicial) {
             case 'BARISTA':
-                window.location.href = './barista.html';
+                window.location.href = './orden.html';
+                break;
+            case 'COCINERO':
+                window.location.href = './orden.html';
                 break;
             case 'CAJERO':
-                window.location.href = './caja.html';
+                window.location.href = './pago.html';
+                break;
+            case 'ADMINISTRADOR':
+                window.location.href = './pago.html';
+                break;
+            case 'MESERO':
+                window.location.href = './pago.html';
                 break;
             case 'GERENTE':
             default:
-                window.location.href = './pedido.html';
+                window.location.href = './pago.html';
                 break;
         }
     }

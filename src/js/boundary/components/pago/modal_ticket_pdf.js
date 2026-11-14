@@ -20,6 +20,7 @@ class ModalTicketPdf extends HTMLElement {
 
         const {
             idFactura,
+            cliente,
             orden,
             productos,
             abonos,
@@ -33,6 +34,11 @@ class ModalTicketPdf extends HTMLElement {
         const numOrden = orden?.idOrden
             ? `#${String(orden.idOrden).slice(-5).toUpperCase()}`
             : "Histórico";
+        const nombreCliente = (
+            cliente ||
+            orden?.clienteNombre ||
+            "Consumidor Final"
+        ).trim();
 
         const filasProductos = productos.map(p => `
             <tr>
@@ -123,7 +129,7 @@ class ModalTicketPdf extends HTMLElement {
                         <div class="linea"></div>
                         <div><strong>Factura:</strong> #F-${numFactura}</div>
                         <div><strong>Orden:</strong> ${numOrden}</div>
-                        <div><strong>Cliente:</strong> Consumidor Final</div>
+                        <div><strong>Cliente:</strong> ${nombreCliente}</div>
                         <div><strong>Fecha:</strong> ${fecha}</div>
                         <div class="linea"></div>
                         <table>

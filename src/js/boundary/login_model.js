@@ -1,6 +1,7 @@
 import './components/login/login_cafefe.js';
 import './components/mensaje_error.js';
-
+import './components/boton_instalar_pwa.js';
+import './components/cafefe_navbar.js';
 import SessionManager from '../control/session_manager.js';
 
 class LoginModel extends HTMLElement {

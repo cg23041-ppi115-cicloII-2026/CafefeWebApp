@@ -7,6 +7,7 @@ import FacturaOrdenProductoDAO from "../control/factura_orden_producto_dao.js";
 import PagoDAO from "../control/pago_dao.js";
 import PagoDetalleDAO from "../control/pago_detalle_dao.js";
 
+import "./components/cafefe_navbar.js";
 import "./components/orden/tarjeta_horizontal.js";
 import "./components/orden/paginacion_ordenes.js";
 import "./components/pago/panel_cobro.js";
@@ -31,7 +32,7 @@ class PagoModel extends HTMLElement {
         this._tamanoPagina = 10;
         this._hayMasPaginas = false;
 
-        this._ordenesPorCobrar = []; // [{ orden, productos, total }]
+        this._ordenesPorCobrar = []; // [{ orden, productos, total, cliente }]
         this._ordenSeleccionada = null;
         this._subvista = "cobro"; // "cobro" | "historial"
         this._listenersRegistrados = false;
@@ -74,6 +75,12 @@ class PagoModel extends HTMLElement {
     _limpiarError() {
         const zona = this._root.querySelector("#zonaErrores");
         if (zona) zona.innerHTML = "";
+    }
+
+    _extraerCliente(orden, items = []) {
+        const fuente = `${items[0]?.observaciones || ""} | ${orden?.observaciones || ""}`;
+        const match = fuente.match(/\[CLIENTE:\s*([^\]]+)\]/i) || fuente.match(/Cliente:\s*([^|]+)/i);
+        return match ? match[1].trim() : "Consumidor Final";
     }
 
     _cargarCajaActiva() {
@@ -137,7 +144,13 @@ class PagoModel extends HTMLElement {
 
                     const productos = this._normalizarProductos(itemsCrudos);
                     const total = productos.reduce((acc, p) => acc + Number(p.precio || 0), 0);
-                    return { orden, productos, total };
+                    const cliente = this._extraerCliente(orden, itemsCrudos);
+                    return {
+                        orden: { ...orden, clienteNombre: cliente },
+                        productos,
+                        total,
+                        cliente
+                    };
                 } catch {
                     return null;
                 }
@@ -174,6 +187,13 @@ class PagoModel extends HTMLElement {
             return;
         }
 
+        const clienteFactura = (
+            detallePago.cliente ||
+            orden?.clienteNombre ||
+            this._extraerCliente(orden, productos) ||
+            "Consumidor Final"
+        ).trim();
+
         if (panel) panel.procesando = true;
         this._limpiarError();
 
@@ -182,10 +202,10 @@ class PagoModel extends HTMLElement {
             const resFactura = await this._facturaDAO.create({
                 idCaja: { idCaja: this._cajaActiva.idCaja },
                 idEmpleadoRol: { idEmpleadoRol },
-                cliente: "Consumidor Final",
+                cliente: clienteFactura,
                 fechaFacturacion: new Date().toISOString(),
                 estado: "PAGADA",
-                observaciones: `Orden #${String(orden.idOrden).slice(-5).toUpperCase()}`
+                observaciones: `Orden #${String(orden.idOrden).slice(-5).toUpperCase()} | Cliente: ${clienteFactura}`
             });
             const idFactura = resFactura.datos?.id;
             if (!idFactura) throw new Error("El servidor no devolvió el ID de la factura creada.");
@@ -238,7 +258,8 @@ class PagoModel extends HTMLElement {
             if (modalTicket) {
                 modalTicket.abrir({
                     idFactura,
-                    orden,
+                    cliente: clienteFactura,
+                    orden: { ...orden, clienteNombre: clienteFactura },
                     productos,
                     abonos,
                     totalPedido,
@@ -263,17 +284,17 @@ class PagoModel extends HTMLElement {
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/pago_model.css">
 
-            <div class="zona-errores" id="zonaErrores"></div>
-            <modal-ticket-pdf></modal-ticket-pdf>
-
-            <div class="subnav-tpv">
-                <button type="button" class="btn-subnav ${esCobro ? "activo" : ""}" id="tabCobro">
+            <cafefe-navbar titulo="Cafefe · Caja y Facturación (TPV)">
+                <button type="button" class="${esCobro ? "btn-secundario" : "btn-outline"}" id="tabCobro">
                     Terminal de Cobro (TPV)
                 </button>
-                <button type="button" class="btn-subnav ${!esCobro ? "activo" : ""}" id="tabHistorial">
+                <button type="button" class="${!esCobro ? "btn-secundario" : "btn-outline"}" id="tabHistorial">
                     Historial de Facturas / Reimprimir
                 </button>
-            </div>
+            </cafefe-navbar>
+
+            <div class="zona-errores" id="zonaErrores"></div>
+            <modal-ticket-pdf></modal-ticket-pdf>
 
             ${esCobro ? `
                 <main class="layout-tpv">
@@ -343,7 +364,9 @@ class PagoModel extends HTMLElement {
                         <span class="uid">#${uidCorto}</span>
                         <span class="monto">$${item.total.toFixed(2)}</span>
                     </div>
-                    <div class="tarjeta-cobro-detalle">${item.productos.length} producto(s)</div>
+                    <div class="tarjeta-cobro-detalle">
+                        <strong>${item.cliente}</strong> · ${item.productos.length} producto(s)
+                    </div>
                     <button type="button" class="btn-seleccionar">
                         ${seleccionada ? "Seleccionada ✓" : "Seleccionar"}
                     </button>

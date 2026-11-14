@@ -88,6 +88,7 @@ class TarjetaOrden extends HTMLElement {
         if (!this._orden) return;
 
         const uidCorto = String(this._orden.idOrden || "0000").slice(-5).toUpperCase();
+        const nombreCliente = this._orden.clienteNombre || `Pedido #${uidCorto}`;
         const esPendiente = this._modo === "pendiente";
         const textoBoton = esPendiente ? "Tomar y Preparar" : "Marcar Entregado";
         const nombreEvento = esPendiente ? "tomar-orden" : "entregar-orden";
@@ -101,7 +102,7 @@ class TarjetaOrden extends HTMLElement {
             <tarjeta-horizontal>
                 <div slot="titulo">
                     <div class="uid-badge">ORDEN #${uidCorto}</div>
-                    <div class="cliente-nombre">Pedido #${uidCorto}</div>
+                    <div class="cliente-nombre">${nombreCliente}</div>
                     <div class="badges-contenedor">
                         ${tiempoBadgeHTML}
                     </div>

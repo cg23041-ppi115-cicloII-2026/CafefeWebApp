@@ -1,0 +1,106 @@
+:host {
+    display: block;
+    width: 100%;
+    font-family: var(--fuente-principal, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background-color: var(--coffee-brown, #4B3621);
+    color: var(--texto-claro, #FFFFFF);
+    padding: 0.75rem 1.75rem;
+    box-shadow: 0 2px 8px rgba(43, 29, 14, 0.25);
+    box-sizing: border-box;
+}
+
+.navbar-marca {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.navbar-logo {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    border-radius: 50%;
+    background-color: var(--vanilla-beige, #EDE0C8);
+    padding: 4px;
+    flex-shrink: 0;
+}
+
+.navbar-titulo {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--texto-claro, #FFFFFF);
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.navbar-acciones {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* Estilos uniformes para botones que inyectes dentro de <cafefe-navbar> */
+::slotted(button) {
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 0.55rem 1.05rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.18s ease, transform 0.15s ease;
+}
+
+::slotted(button.btn-outline) {
+    background-color: transparent;
+    color: var(--vanilla-beige, #EDE0C8);
+    border: 1.5px solid var(--vanilla-beige, #EDE0C8);
+}
+
+::slotted(button.btn-outline:hover) {
+    background-color: rgba(237, 224, 200, 0.14);
+}
+
+::slotted(button.btn-secundario) {
+    background-color: #6B4F35;
+    color: var(--texto-claro, #FFFFFF);
+    border: 1.5px solid transparent;
+}
+
+::slotted(button.btn-secundario:hover) {
+    background-color: #7D5D3F;
+}
+
+@media (max-width: 720px) {
+    .navbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.85rem 1rem;
+    }
+
+    .navbar-acciones {
+        justify-content: flex-start;
+    }
+
+    .navbar-titulo {
+        font-size: 1.15rem;
+    }
+}
+
+@media print {
+    :host {
+        display: none !important;
+    }
+}

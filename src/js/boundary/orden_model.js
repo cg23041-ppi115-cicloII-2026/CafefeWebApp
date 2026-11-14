@@ -1,7 +1,7 @@
 import OrdenDAO from "../control/orden_dao.js";
 import OrdenProductoDAO from "../control/orden_producto_dao.js";
 import ProductoDAO from "../control/producto_dao.js";
-import "./components/orden/orden_header.js";
+import "./components/cafefe_navbar.js";
 import "./components/orden/tarjeta_orden.js";
 import "./components/orden/orden_proceso.js";
 import "./components/orden/modal_cancelar_orden.js";
@@ -56,10 +56,24 @@ class OrdenModel extends HTMLElement {
         if (zona) zona.innerHTML = "";
     }
 
+    _extraerCliente(orden, items = []) {
+        const fuente = `${items[0]?.observaciones || ""} | ${orden?.observaciones || ""}`;
+        const match = fuente.match(/\[CLIENTE:\s*([^\]]+)\]/i) || fuente.match(/Cliente:\s*([^|]+)/i);
+        return match ? match[1].trim() : null;
+    }
+
     _limpiarEtiquetasEstado(obs = "") {
         return String(obs || "")
             .replace(/\s*\|\s*\[ESTADO:[^\]]*\]/g, "")
             .replace(/^\[ESTADO:[^\]]*\]\s*\|\s*/g, "")
+            .trim();
+    }
+
+    _limpiarEtiquetasInternas(obs = "") {
+        return this._limpiarEtiquetasEstado(obs)
+            .replace(/\[CLIENTE:\s*[^\]]+\]\s*\|\s*/gi, "")
+            .replace(/\s*\|\s*\[CLIENTE:\s*[^\]]+\]/gi, "")
+            .replace(/^\[CLIENTE:\s*[^\]]+\]$/gi, "")
             .trim();
     }
 
@@ -80,7 +94,7 @@ class OrdenModel extends HTMLElement {
                 ...item,
                 idProducto: idProd,
                 nombreProducto: nombre,
-                observacionesLimpias: this._limpiarEtiquetasEstado(item.observaciones),
+                observacionesLimpias: this._limpiarEtiquetasInternas(item.observaciones),
                 listo: false
             };
         });
@@ -117,21 +131,33 @@ class OrdenModel extends HTMLElement {
                     return prodDAO.findRange(0, 50)
                         .then(r => {
                             const items = Array.isArray(r.datos) ? r.datos : [];
-                            if (items.length === 0) return { tipo: "pendiente", orden };
+                            const clienteNombre = this._extraerCliente(orden, items);
+                            const ordenConCliente = {
+                                ...orden,
+                                clienteNombre,
+                                observaciones: clienteNombre
+                                    ? `Cliente: ${clienteNombre}${orden.observaciones ? ` | ${this._limpiarEtiquetasInternas(orden.observaciones)}` : ""}`
+                                    : orden.observaciones
+                            };
+
+                            if (items.length === 0) return { tipo: "pendiente", orden: ordenConCliente };
 
                             const obs = items[0].observaciones || "";
                             if (obs.includes("[ESTADO: ENTREGADO") || obs.includes("[ESTADO: CANCELADO")) {
                                 return null;
                             }
                             if (obs.includes("[ESTADO: LISTO]")) {
-                                return { tipo: "lista", orden, productos: this._normalizarProductos(items) };
+                                return { tipo: "lista", orden: ordenConCliente, productos: this._normalizarProductos(items) };
                             }
                             if (obs.includes("[ESTADO: PREPARANDOSE]")) {
-                                return { tipo: "proceso", orden, productos: this._normalizarProductos(items) };
+                                return { tipo: "proceso", orden: ordenConCliente, productos: this._normalizarProductos(items) };
                             }
-                            return { tipo: "pendiente", orden };
+                            return { tipo: "pendiente", orden: ordenConCliente };
                         })
-                        .catch(() => ({ tipo: "pendiente", orden }));
+                        .catch(() => {
+                            const clienteNombre = this._extraerCliente(orden);
+                            return { tipo: "pendiente", orden: { ...orden, clienteNombre } };
+                        });
                 });
 
                 return Promise.all(promesas).then(resultados => {
@@ -203,11 +229,13 @@ class OrdenModel extends HTMLElement {
                     return;
                 }
 
+                const clienteNombre = orden.clienteNombre || this._extraerCliente(orden, itemsCrudos);
+                const ordenConCliente = { ...orden, clienteNombre };
                 const productos = this._normalizarProductos(itemsCrudos);
                 this._actualizarProductosBD(orden.idOrden, productos, "[ESTADO: PREPARANDOSE]");
 
                 this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
-                this._enProceso = { orden, productos };
+                this._enProceso = { orden: ordenConCliente, productos };
                 this._renderizarListas();
             })
             .catch(err => {
@@ -309,8 +337,9 @@ class OrdenModel extends HTMLElement {
                         const esEntregado = obs.includes("[ESTADO: ENTREGADO");
                         const esCancelado = obs.includes("[ESTADO: CANCELADO");
                         if (esEntregado || esCancelado) {
+                            const clienteNombre = this._extraerCliente(orden, items);
                             return {
-                                orden,
+                                orden: { ...orden, clienteNombre },
                                 productos: items,
                                 estado: esCancelado ? "cancelado" : "entregado",
                                 detalleEstado: obs
@@ -341,7 +370,10 @@ class OrdenModel extends HTMLElement {
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/orden_model.css">
 
-            <orden-header></orden-header>
+            <cafefe-navbar titulo="Cafefe · Pantalla de Cocina y Barista">
+                <button type="button" class="btn-outline" id="btnHistorial">Ver Historial del Turno</button>
+                <button type="button" class="btn-secundario" id="btnRefrescar">Actualizar Cola</button>
+            </cafefe-navbar>
 
             <div class="zona-errores" id="zonaErrores"></div>
             <modal-cancelar-orden></modal-cancelar-orden>
@@ -368,8 +400,9 @@ class OrdenModel extends HTMLElement {
             </main>
         `;
 
-        this._root.addEventListener("abrir-historial", () => this._abrirHistorialTurno());
-        this._root.addEventListener("refrescar-cola", () => this._cargarOrdenes());
+        this._root.querySelector("#btnHistorial").addEventListener("click", () => this._abrirHistorialTurno());
+        this._root.querySelector("#btnRefrescar").addEventListener("click", () => this._cargarOrdenes());
+
         this._root.addEventListener("confirmar-cancelacion", e => {
             const { orden, motivo } = e.detail;
             this._cancelarOrdenConMotivo(orden, motivo);

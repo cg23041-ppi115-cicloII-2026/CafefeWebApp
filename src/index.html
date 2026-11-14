@@ -21,17 +21,11 @@
 
     <!-- PANTALLA DE INICIO PRINCIPAL -->
     <div class="layout-grid" id="contenedorInicio">
-        <header class="header-cafefe">
-            <div class="marca-box">
-                <img src="./resources/img/logo_cafe.png" alt="Logo Cafefe" class="logo-img">
-                <span class="marca-nombre">Cafefe</span>
-            </div>
-            <nav class="nav-links" id="navPrincipal">
-                <a href="./index.html" class="activo" id="linkInicio">Inicio</a>
-                <a href="./pedido.html" id="linkPedido">Hacer Pedido</a>
-                <a href="#login" id="linkMostrarLogin">Iniciar Sesión</a>
-            </nav>
-        </header>
+        <cafefe-navbar titulo="Cafefe">
+    <button type="button" class="btn-secundario" id="linkInicio">Inicio</button>
+    <button type="button" class="btn-outline" id="linkPedido">Hacer Pedido</button>
+    <button type="button" class="btn-outline" id="linkMostrarLogin">Iniciar Sesión</button>
+</cafefe-navbar>
 
         <main>
             <section class="vista-inicio" id="vistaInicio">

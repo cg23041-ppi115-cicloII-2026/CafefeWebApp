@@ -111,7 +111,6 @@ class PedidoModel extends HTMLElement {
                 const idTipo = desc.idTipoDescuento?.idTipoDescuento
                     || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
 
-                // Si tiene tipoDescuento asociado, exigir que esté activo
                 if (idTipo && tiposActivos.size > 0 && !tiposActivos.has(idTipo)) {
                     return false;
                 }
@@ -184,7 +183,6 @@ class PedidoModel extends HTMLElement {
             this.caracteristicas = (respCar.datos || []).filter(c => c.activo !== false);
             this.tiposCaracteristica = (respTipoCar.datos || []).filter(tc => tc.activo !== false);
 
-            // Localizar la categoría "Descuentos" (en BD o virtual) para poblarla dinámicamente
             const catDescuentosBD = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase().includes('descuento')
             );
@@ -192,7 +190,6 @@ class PedidoModel extends HTMLElement {
                 ? catDescuentosBD.idTipoProducto
                 : 'VIRTUAL_DESCUENTOS';
 
-            // Unificar cualquier categoría hija de bebidas bajo "Bebidas" en el sidebar
             const catBebidasMaestra = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase() === 'bebidas' || c.nombre.trim().toLowerCase() === 'bebida'
             );
@@ -241,7 +238,6 @@ class PedidoModel extends HTMLElement {
                         const respRel = await ptpDAO.findRange(0, 50);
                         const relaciones = respRel.datos || [];
 
-                        // Ignorar asignaciones sueltas que apuntaban a la vieja categoría "Descuentos"
                         const relValida = relaciones.find(r => {
                             const idC = r.idTipoProducto?.idTipoProducto
                                 || r.tipoProducto?.idTipoProducto
@@ -275,7 +271,6 @@ class PedidoModel extends HTMLElement {
                         console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
                     }
 
-                    // Aplicar descuento vigente si el producto está en descuento_producto
                     const infoDesc = mapaDescuentos.get(prod.idProducto) || null;
                     const precioBase = Number(prod.precioSugerido || 0);
                     const precioFinal = infoDesc
@@ -447,7 +442,7 @@ class PedidoModel extends HTMLElement {
         this._enviandoOrden = true;
         this._limpiarError();
 
-        const clienteLimpio = (nombreCliente || '').trim() || 'Cliente en línea';
+        const clienteLimpio = (nombreCliente || '').trim() || 'Consumidor Final';
 
         try {
             const idEmpleadoRolValido = await this._obtenerIdEmpleadoRolPorDefecto();
@@ -468,7 +463,7 @@ class PedidoModel extends HTMLElement {
                 .join(', ');
 
             const observacionesOrden = [
-                `Cliente: ${clienteLimpio}`,
+                `[CLIENTE: ${clienteLimpio}]`,
                 'Para llevar',
                 resumenProductos
             ].filter(Boolean).join(' | ');
@@ -493,6 +488,7 @@ class PedidoModel extends HTMLElement {
             for (const item of items) {
                 for (let i = 0; i < item.cantidad; i++) {
                     const obsItem = [
+                        `[CLIENTE: ${clienteLimpio}]`,
                         item.personalizacion || 'Estándar',
                         item.nombreDescuento ? `Promo: ${item.nombreDescuento}` : null
                     ].filter(Boolean).join(' | ');

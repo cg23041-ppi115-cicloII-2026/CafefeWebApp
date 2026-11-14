@@ -3,19 +3,22 @@
     font-family: var(--fuente-principal);
     background-color: var(--bg-app);
     color: var(--texto-principal);
-    min-height: calc(100vh - 64px);
-    padding: 1.5rem;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
 }
 
 .zona-errores {
     max-width: 1280px;
-    margin: 0 auto 1rem auto;
+    margin: 1rem auto 0 auto;
+    padding: 0 1.5rem;
 }
 
 .subnav-tpv {
     max-width: 1280px;
-    margin: 0 auto 1.25rem auto;
+    margin: 1.25rem auto;
+    padding: 0 1.5rem;
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
@@ -46,6 +49,7 @@
 .layout-tpv {
     max-width: 1280px;
     margin: 0 auto;
+    padding: 1.5rem;
     display: grid;
     grid-template-columns: 340px 1fr;
     gap: 1.5rem;

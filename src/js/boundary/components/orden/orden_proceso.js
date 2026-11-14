@@ -72,6 +72,9 @@ class OrdenProceso extends HTMLElement {
         return String(obs || "")
             .replace(/\s*\|\s*\[ESTADO:[^\]]*\]/g, "")
             .replace(/^\[ESTADO:[^\]]*\]\s*\|?\s*/g, "")
+            .replace(/\[CLIENTE:\s*[^\]]+\]\s*\|\s*/gi, "")
+            .replace(/\s*\|\s*\[CLIENTE:\s*[^\]]+\]/gi, "")
+            .replace(/^\[CLIENTE:\s*[^\]]+\]$/gi, "")
             .trim();
     }
 
@@ -88,6 +91,9 @@ class OrdenProceso extends HTMLElement {
         }
 
         const uidCorto = String(this._orden.idOrden || "0000").slice(-5).toUpperCase();
+        const tituloCliente = this._orden.clienteNombre
+            ? `Orden #${uidCorto} — ${this._orden.clienteNombre}`
+            : `Orden #${uidCorto}`;
         const todosListos = this._productos.length > 0 && this._productos.every(p => p.listo);
         const { texto: textoTiempo, clase: claseTiempo } = this._calcularTiempoPreparacion();
         const tiempoHTML = textoTiempo
@@ -119,7 +125,7 @@ class OrdenProceso extends HTMLElement {
                             <span class="etiqueta-activa">PREPARANDO AHORA</span>
                             ${tiempoHTML}
                         </div>
-                        <h3>Orden #${uidCorto}</h3>
+                        <h3>${tituloCliente}</h3>
                     </div>
                     <span class="contador">${this._productos.filter(p => p.listo).length} / ${this._productos.length} listos</span>
                 </div>

@@ -1,4 +1,5 @@
-const CACHE_NAME = "cafefe-app-v1.0.0";
+
+const CACHE_NAME = "cafefe-app-v1.0.1";
 
 const ARCHIVOS_CACHE = [
     "./",
@@ -12,12 +13,13 @@ const ARCHIVOS_CACHE = [
     "./resources/img/logo_cafe.png",
     "./resources/img/logo_cafe_192.png",
     "./resources/img/logo_cafe_512.png",
-    
+
     "./resources/estilos/index.css",
     "./resources/estilos/principal.css",
     "./resources/estilos/orden_model.css",
     "./resources/estilos/pago_model.css",
     "./resources/estilos/tarjeta.css",
+    "./resources/estilos/components/cafefe_navbar.css",
     "./resources/estilos/components/catalogo_productos.css",
     "./resources/estilos/components/boton_instalar_pwa.css",
     "./resources/estilos/components/detalle_producto.css",
@@ -30,13 +32,13 @@ const ARCHIVOS_CACHE = [
     "./resources/estilos/components/tarjeta_horizontal.css",
     "./resources/estilos/components/tarjeta_orden.css",
 
-
     "./js/boundary/main.js",
     "./js/boundary/orden_model.js",
     "./js/boundary/pago_model.js",
     "./js/boundary/pedido_model.js",
     "./js/boundary/tipo_producto_model.js",
     "./js/boundary/login_model.js",
+    "./js/boundary/components/cafefe_navbar.js",
     "./js/boundary/components/mensaje_error.js",
     "./js/boundary/components/boton_instalar_pwa.js",
     "./js/boundary/components/tarjeta_simple.js",
@@ -78,8 +80,8 @@ const ARCHIVOS_CACHE = [
     "./js/control/tipo_caracteristica_dao.js",
     "./js/control/tipo_descuento_dao.js",
     "./js/control/tipo_producto_dao.js",
-    './js/control/empleado_dao.js',
-    './js/control/empleado_rol_dao.js',
+    "./js/control/empleado_dao.js",
+    "./js/control/empleado_rol_dao.js",
 
     "./js/entity/default_error.js",
     "./js/entity/default_response.js",
@@ -108,8 +110,47 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
+    const req = event.request;
+    const url = new URL(req.url);
+
+    // 1. Nunca interceptar peticiones que no sean GET (POST, PUT, DELETE) ni llamadas a la API REST
+    if (req.method !== "GET" || url.pathname.includes("/cafefe/v1/")) {
+        return;
+    }
+
+    // 2. Network-First para HTML y JS: evita congelar sesiones, logins o cambios recientes en desarrollo/producción
+    const esDocumentoOScript =
+        req.mode === "navigate" ||
+        req.destination === "document" ||
+        req.destination === "script" ||
+        url.pathname.endsWith(".html") ||
+        url.pathname.endsWith(".js");
+
+    if (esDocumentoOScript) {
+        event.respondWith(
+            fetch(req)
+                .then(networkResp => {
+                    if (networkResp && networkResp.ok) {
+                        const copia = networkResp.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(req, copia));
+                    }
+                    return networkResp;
+                })
+                .catch(() => caches.match(req))
+        );
+        return;
+    }
+
+    // 3. Cache-First para activos estáticos (CSS, imágenes, iconos, manifest)
     event.respondWith(
-        caches.match(event.request)
-            .then(response => response || fetch(event.request))
+        caches.match(req).then(cachedResp => {
+            return cachedResp || fetch(req).then(networkResp => {
+                if (networkResp && networkResp.ok) {
+                    const copia = networkResp.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(req, copia));
+                }
+                return networkResp;
+            });
+        })
     );
 });

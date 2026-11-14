@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cafefe | Pedido en Línea</title>
+    <link rel="icon" type="image/png" href="./resources/img/logo_cafe.png">
     <link rel="stylesheet" href="./resources/estilos/index.css">
 </head>
 <body>
@@ -13,9 +14,10 @@
                 <img src="./resources/img/logo_cafe.png" alt="Logo Cafefe" class="logo-img">
                 <span class="marca-nombre">Cafefe</span>
             </div>
-            <nav class="nav-links">
+            <nav class="nav-links" id="navPrincipal">
                 <a href="./index.html" class="activo">Inicio</a>
                 <a href="./pedido.html">Hacer Pedido</a>
+                <a href="./login.html" id="linkLogin">Iniciar Sesión</a>
             </nav>
         </header>
 
@@ -72,13 +74,44 @@
         </footer>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const btnPedido = document.getElementById('btnIrPedido');
+    <script type="module">
+        import SessionManager from "./js/control/session_manager.js";
+
+        const sessionManager = new SessionManager();
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const btnPedido = document.getElementById("btnIrPedido");
             if (btnPedido) {
-                btnPedido.addEventListener('click', () => {
-                    window.location.href = 'pedido.html';
+                btnPedido.addEventListener("click", () => {
+                    sessionManager.iniciarModoCliente();
+                    window.location.href = "./pedido.html";
                 });
+            }
+
+            // Si un empleado ya inició sesión, mostrar acceso directo a su estación en el menú
+            const sesion = sessionManager.obtenerSesion();
+            const linkLogin = document.getElementById("linkLogin");
+            const navPrincipal = document.getElementById("navPrincipal");
+
+            if (sesion && sesion.modo === "EMPLEADO" && linkLogin && navPrincipal) {
+                const destino = sesion.vistaInicial === "BARISTA"
+                    ? "./barista.html"
+                    : sesion.vistaInicial === "CAJERO"
+                        ? "./caja.html"
+                        : "./pedido.html";
+
+                linkLogin.href = destino;
+                linkLogin.textContent = `Estación (${sesion.nombre})`;
+
+                const btnSalir = document.createElement("a");
+                btnSalir.href = "#";
+                btnSalir.textContent = "Salir";
+                btnSalir.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    sessionManager.cerrarSesion();
+                    window.location.reload();
+                });
+                navPrincipal.appendChild(btnSalir);
             }
         });
     </script>

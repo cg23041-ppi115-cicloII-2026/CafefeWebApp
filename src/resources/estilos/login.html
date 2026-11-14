@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafefe | Acceso de Personal</title>
+    <link rel="icon" type="image/png" href="./resources/img/logo_cafe.png">
+    <link rel="stylesheet" href="./resources/estilos/index.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <login-cafefe id="componenteLogin" logo="./resources/img/logo_cafe.png"></login-cafefe>
+
+    <script type="module">
+        import SessionManager from "./js/control/session_manager.js";
+        import "./js/boundary/components/login/login_cafefe.js";
+
+        const sessionManager = new SessionManager();
+        const componenteLogin = document.getElementById("componenteLogin");
+
+        function redirigirSegunSesion(sesion) {
+            if (!sesion) return;
+
+            if (sesion.modo === "CLIENTE") {
+                window.location.href = "./pedido.html";
+                return;
+            }
+
+            switch (sesion.vistaInicial) {
+                case "BARISTA":
+                    window.location.href = "./barista.html";
+                    break;
+                case "CAJERO":
+                    window.location.href = "./caja.html";
+                    break;
+                case "GERENTE":
+                    window.location.href = "./pedido.html";
+                    break;
+                default:
+                    window.location.href = "./index.html";
+                    break;
+            }
+        }
+
+        // Si ya tiene una sesión activa guardada, redirigir directamente
+        const sesionActiva = sessionManager.obtenerSesion();
+        if (sesionActiva && sesionActiva.modo === "EMPLEADO") {
+            redirigirSegunSesion(sesionActiva);
+        }
+
+        componenteLogin.addEventListener("login-exitoso", (e) => {
+            redirigirSegunSesion(e.detail);
+        });
+
+        componenteLogin.addEventListener("acceso-cliente", (e) => {
+            redirigirSegunSesion(e.detail);
+        });
+    </script>
+</body>
+</html>

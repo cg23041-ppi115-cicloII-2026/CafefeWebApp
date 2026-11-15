@@ -1,4 +1,5 @@
 import OrdenDAO from "../control/orden_dao.js";
+import FacturaDAO from "../control/factura_dao.js";
 import OrdenProductoDAO from "../control/orden_producto_dao.js";
 import ProductoDAO from "../control/producto_dao.js";
 import SessionManager from "../control/session_manager.js";
@@ -16,6 +17,7 @@ class OrdenModel extends HTMLElement {
         this._root = this.attachShadow({ mode: "open" });
         this._sessionManager = new SessionManager();
         this._ordenDAO = new OrdenDAO();
+        this._facturaDAO = new FacturaDAO();
         this._productoDAO = new ProductoDAO();
         this._mapaProductos = new Map();
 
@@ -63,6 +65,7 @@ class OrdenModel extends HTMLElement {
 
     _mostrarError(titulo, err, accionReintentar = null) {
         const zona = this._root.querySelector("#zonaErrores");
+        if (!zona) return;
         zona.innerHTML = "";
 
         const alerta = document.createElement("mensaje-error");
@@ -83,6 +86,46 @@ class OrdenModel extends HTMLElement {
     _limpiarError() {
         const zona = this._root.querySelector("#zonaErrores");
         if (zona) zona.innerHTML = "";
+    }
+
+    _parsearFecha(fecha) {
+        if (!fecha) return null;
+        if (Array.isArray(fecha)) {
+            const [anio, mes, dia, hora = 0, min = 0, seg = 0] = fecha;
+            return new Date(anio, mes - 1, dia, hora, min, seg);
+        }
+        const limpia = String(fecha).trim().replace(/\[.*\]$/, "");
+        const d = new Date(limpia);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    _esDeHoy(fecha) {
+        const d = this._parsearFecha(fecha);
+        if (!d) return false;
+        const hoy = new Date();
+        return (
+            d.getFullYear() === hoy.getFullYear() &&
+            d.getMonth() === hoy.getMonth() &&
+            d.getDate() === hoy.getDate()
+        );
+    }
+
+    async _obtenerCodigosOrdenesPagadas() {
+        try {
+            const res = await this._facturaDAO.findRange(0, 50);
+            const facturas = Array.isArray(res.datos) ? res.datos : [];
+            const codigos = new Set();
+
+            facturas.forEach(f => {
+                if (String(f.estado || "").toUpperCase() === "PAGADA") {
+                    const match = String(f.observaciones || "").match(/Orden\s*#([A-Z0-9]+)/i);
+                    if (match) codigos.add(match[1].toUpperCase());
+                }
+            });
+            return codigos;
+        } catch {
+            return new Set();
+        }
     }
 
     _extraerCliente(orden, items = []) {
@@ -132,7 +175,6 @@ class OrdenModel extends HTMLElement {
             .trim();
         const upNueva = etiquetaLimpia.toUpperCase();
 
-        // Al volver a cola o reabrir, se quitan estados previos de cierre/proceso para que quede limpia
         let partes = this._obtenerPartesObservacion(obsActual).filter(p => {
             const up = p.toUpperCase();
             if (upNueva === "DEVUELTO A COLA" || upNueva === "REABIERTO") {
@@ -156,7 +198,6 @@ class OrdenModel extends HTMLElement {
             return up !== "DEVUELTO A COLA" && up !== "REABIERTO";
         });
 
-        // Al reabrir, regresa como pendiente limpia sin agregar "Reabierto" como estado final
         if (upNueva === "REABIERTO") {
             return partes.join(" | ");
         }
@@ -203,91 +244,96 @@ class OrdenModel extends HTMLElement {
             });
     }
 
-    _cargarOrdenes() {
-        this._ordenDAO.findRange(0, 50)
-            .then(res => {
-                this._limpiarError();
-                const crudos = Array.isArray(res.datos) ? res.datos : [];
+    async _cargarOrdenes() {
+        try {
+            const [res, codigosPagados] = await Promise.all([
+                this._ordenDAO.findRange(0, 50),
+                this._obtenerCodigosOrdenesPagadas()
+            ]);
 
-                const unicasMap = new Map();
-                crudos.forEach(o => {
-                    if (o?.idOrden && !unicasMap.has(String(o.idOrden))) {
-                        unicasMap.set(String(o.idOrden), o);
-                    }
-                });
-                const datos = Array.from(unicasMap.values()).sort(
-                    (a, b) => new Date(a.fechaCreacion || 0) - new Date(b.fechaCreacion || 0)
-                );
+            this._limpiarError();
+            const crudos = Array.isArray(res.datos) ? res.datos : [];
 
-                const promesas = datos.map(orden => {
-                    const prodDAO = new OrdenProductoDAO(orden.idOrden);
-                    return prodDAO.findRange(0, 50)
-                        .then(r => {
-                            const items = Array.isArray(r.datos) ? r.datos : [];
-                            if (items.length === 0) return null;
-
-                            const estado = this._extraerEstadoOficial(items);
-                            if (
-                                estado === "ENTREGADO" ||
-                                estado === "CANCELADO" ||
-                                estado === "PAGADA"
-                            ) {
-                                return null;
-                            }
-
-                            const clienteNombre = this._extraerCliente(orden, items);
-                            const notaOrden = this._limpiarEtiquetasInternas(orden.observaciones);
-                            const ordenConCliente = {
-                                ...orden,
-                                clienteNombre,
-                                observaciones: clienteNombre
-                                    ? `Cliente: ${clienteNombre}${notaOrden ? ` | ${notaOrden}` : ""}`
-                                    : notaOrden
-                            };
-
-                            if (estado === "LISTO") {
-                                return { tipo: "lista", orden: ordenConCliente, productos: this._normalizarProductos(items) };
-                            }
-                            if (estado === "PREPARANDOSE") {
-                                return { tipo: "proceso", orden: ordenConCliente, productos: this._normalizarProductos(items) };
-                            }
-                            return { tipo: "pendiente", orden: ordenConCliente };
-                        })
-                        .catch(() => null);
-                });
-
-                return Promise.all(promesas).then(resultados => {
-                    const pendientes = [];
-                    const listas = [];
-                    let enProceso = null;
-
-                    resultados.forEach(r => {
-                        if (!r) return;
-                        if (r.tipo === "lista") {
-                            listas.push({ orden: r.orden, productos: r.productos });
-                        } else if (r.tipo === "proceso" && !enProceso) {
-                            enProceso = { orden: r.orden, productos: r.productos };
-                        } else {
-                            pendientes.push(r.orden);
-                        }
-                    });
-
-                    this._pendientes = pendientes;
-                    this._enProceso = enProceso;
-                    this._listas = listas;
-                    this._renderizarListas();
-                });
-            })
-            .catch(err => {
-                this._mostrarError(
-                    "No se pudo cargar la cola de órdenes",
-                    err,
-                    () => this._cargarOrdenes()
-                );
+            const unicasMap = new Map();
+            crudos.forEach(o => {
+                if (o?.idOrden && !unicasMap.has(String(o.idOrden))) {
+                    unicasMap.set(String(o.idOrden), o);
+                }
             });
+            const datos = Array.from(unicasMap.values()).sort(
+                (a, b) => (this._parsearFecha(a.fechaCreacion)?.getTime() || 0) - (this._parsearFecha(b.fechaCreacion)?.getTime() || 0)
+            );
+
+            const resultados = await Promise.all(datos.map(async orden => {
+                try {
+                    const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
+                    if (codigosPagados.has(uidCorto)) return null;
+
+                    const prodDAO = new OrdenProductoDAO(orden.idOrden);
+                    const r = await prodDAO.findRange(0, 50);
+                    const items = Array.isArray(r.datos) ? r.datos : [];
+                    if (items.length === 0) return null;
+
+                    const estado = this._extraerEstadoOficial(items);
+                    if (
+                        estado === "ENTREGADO" ||
+                        estado === "CANCELADO" ||
+                        estado === "PAGADA"
+                    ) {
+                        return null;
+                    }
+
+                    const clienteNombre = this._extraerCliente(orden, items);
+                    const notaOrden = this._limpiarEtiquetasInternas(orden.observaciones);
+                    const ordenConCliente = {
+                        ...orden,
+                        clienteNombre,
+                        observaciones: clienteNombre
+                            ? `Cliente: ${clienteNombre}${notaOrden ? ` | ${notaOrden}` : ""}`
+                            : notaOrden
+                    };
+
+                    if (estado === "LISTO") {
+                        return { tipo: "lista", orden: ordenConCliente, productos: this._normalizarProductos(items) };
+                    }
+                    if (estado === "PREPARANDOSE") {
+                        return { tipo: "proceso", orden: ordenConCliente, productos: this._normalizarProductos(items) };
+                    }
+                    return { tipo: "pendiente", orden: ordenConCliente };
+                } catch {
+                    return null;
+                }
+            }));
+
+            const pendientes = [];
+            const listas = [];
+            let enProceso = null;
+
+            resultados.forEach(r => {
+                if (!r) return;
+                if (r.tipo === "lista") {
+                    listas.push({ orden: r.orden, productos: r.productos });
+                } else if (r.tipo === "proceso" && !enProceso) {
+                    enProceso = { orden: r.orden, productos: r.productos };
+                } else {
+                    pendientes.push(r.orden);
+                }
+            });
+
+            this._pendientes = pendientes;
+            this._enProceso = enProceso;
+            this._listas = listas;
+            this._renderizarListas();
+        } catch (err) {
+            this._mostrarError(
+                "No se pudo cargar la cola de órdenes",
+                err,
+                () => this._cargarOrdenes()
+            );
+        }
     }
 
- _actualizarProductosBD(idOrden, productos, etiquetaEstado) {
+    _actualizarProductosBD(idOrden, productos, etiquetaEstado) {
         const prodDAO = new OrdenProductoDAO(idOrden);
         const promesas = productos.map(prod => {
             const nuevaObs = this._construirObservacion(prod.observaciones, etiquetaEstado);
@@ -423,42 +469,53 @@ class OrdenModel extends HTMLElement {
         this._renderizarListas();
     }
 
-    _abrirHistorialTurno() {
+    async _abrirHistorialTurno() {
         const modal = this._root.querySelector("modal-historial-orden");
         if (!modal) return;
 
-        this._ordenDAO.findRange(0, 50)
-            .then(res => {
-                const lista = Array.isArray(res.datos) ? res.datos : [];
-                const promesas = lista.map(orden => {
-                    const pDAO = new OrdenProductoDAO(orden.idOrden);
-                    return pDAO.findRange(0, 10).then(r => {
-                        const items = Array.isArray(r.datos) ? r.datos : [];
-                        const estadoOficial = this._extraerEstadoOficial(items);
-                        if (estadoOficial === "ENTREGADO" || estadoOficial === "CANCELADO") {
-                            const clienteNombre = this._extraerCliente(orden, items);
-                            return {
-                                orden: { ...orden, clienteNombre },
-                                productos: items,
-                                estado: estadoOficial === "CANCELADO" ? "cancelado" : "entregado",
-                                detalleEstado: this._extraerDetalleCanceladoOEntregado(items[0]?.observaciones || "")
-                            };
-                        }
-                        return null;
-                    }).catch(() => null);
-                });
+        try {
+            const [resOrdenes, codigosPagados] = await Promise.all([
+                this._ordenDAO.findRange(0, 50),
+                this._obtenerCodigosOrdenesPagadas()
+            ]);
 
-                return Promise.all(promesas);
-            })
-            .then(itemsHistorial => {
-                modal.abrir(itemsHistorial.filter(it => it !== null));
-            })
-            .catch(err => {
-                this._mostrarError("Error al cargar el historial del turno", err);
-            });
+            const lista = Array.isArray(resOrdenes.datos) ? resOrdenes.datos : [];
+            const ordenesHoy = lista.filter(o => this._esDeHoy(o.fechaCreacion || o.fecha_creacion));
+
+            const itemsHistorial = await Promise.all(ordenesHoy.map(async orden => {
+                try {
+                    const pDAO = new OrdenProductoDAO(orden.idOrden);
+                    const r = await pDAO.findRange(0, 50);
+                    const items = Array.isArray(r.datos) ? r.datos : [];
+                    const estadoOficial = this._extraerEstadoOficial(items);
+
+                    if (estadoOficial === "ENTREGADO" || estadoOficial === "CANCELADO" || estadoOficial === "PAGADA") {
+                        const clienteNombre = this._extraerCliente(orden, items);
+                        const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
+                        const yaPagada = estadoOficial === "PAGADA" || codigosPagados.has(uidCorto);
+
+                        return {
+                            orden: { ...orden, clienteNombre },
+                            productos: items,
+                            estado: estadoOficial === "CANCELADO" ? "cancelado" : "entregado",
+                            detalleEstado: this._extraerDetalleCanceladoOEntregado(items[0]?.observaciones || ""),
+                            pagada: yaPagada
+                        };
+                    }
+                    return null;
+                } catch {
+                    return null;
+                }
+            }));
+
+            modal.abrir(itemsHistorial.filter(Boolean));
+        } catch (err) {
+            this._mostrarError("Error al cargar el historial del turno", err);
+        }
     }
 
     _reabrirOrden(itemHistorial) {
+        if (!itemHistorial || itemHistorial.pagada) return;
         const { orden, productos } = itemHistorial;
         const normalizados = this._normalizarProductos(productos);
         this._actualizarProductosBD(orden.idOrden, normalizados, "Reabierto")

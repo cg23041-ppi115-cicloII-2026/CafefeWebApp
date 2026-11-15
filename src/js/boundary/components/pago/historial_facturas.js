@@ -1,3 +1,4 @@
+import "../barra_busqueda.js";
 import "./tabla_facturas.js";
 
 class HistorialFacturas extends HTMLElement {
@@ -57,27 +58,30 @@ class HistorialFacturas extends HTMLElement {
             <div class="panel-historial">
                 <div class="barra-busqueda">
                     <h2>Historial de Facturas Emitidas</h2>
-                    <div class="controles-busqueda">
-                        <input type="search" id="inputBuscarFactura"
-                            placeholder="Buscar por # factura, orden, cliente o fecha...">
-                        <button type="button" class="btn-refrescar" id="btnRecargarHistorial" title="Actualizar historial">↻</button>
-                    </div>
+                    <barra-busqueda
+                        id="buscadorFacturas"
+                        placeholder="Buscar por # factura, orden, cliente o fecha..."
+                        mostrar-refrescar>
+                    </barra-busqueda>
                 </div>
                 <tabla-facturas></tabla-facturas>
             </div>
         `;
 
-        this._root.querySelector("#inputBuscarFactura").addEventListener("input", (e) => {
-            this._filtro = e.target.value;
+        const buscador = this._root.querySelector("#buscadorFacturas");
+        buscador.addEventListener("buscar", (e) => {
+            this._filtro = e.detail;
             this._actualizarTabla();
         });
 
-        this._root.querySelector("#btnRecargarHistorial").addEventListener("click", () => {
+        buscador.addEventListener("refrescar", () => {
             this.dispatchEvent(new CustomEvent("recargar-historial", {
                 bubbles: true,
                 composed: true
             }));
         });
+
+        this._actualizarTabla();
     }
 }
 

@@ -3,74 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cafefe | Pedido en Línea</title>
+    <title>Cafefe | Mi Pedido</title>
     <link rel="icon" type="image/png" href="./resources/img/logo_cafe.png">
     <link rel="stylesheet" href="./resources/estilos/principal.css">
     <link rel="stylesheet" href="./resources/estilos/index.css">
     <link rel="manifest" href="./manifest.json">
-    <style>
-        .oculto {
-            display: none !important;
-        }
-    </style>
 </head>
 <body>
-    <!-- PANTALLA DE LOGIN ORQUESTADA POR <login-model> (oculta al inicio) -->
-    <section id="seccionLogin" class="oculto">
-        <login-model id="componenteLoginModel" logo="./resources/img/logo_cafe.png"></login-model>
-    </section>
-
-    <!-- PANTALLA DE INICIO PRINCIPAL -->
-    <div class="layout-grid" id="contenedorInicio">
-        <cafefe-navbar titulo="Cafefe" id="navbarInicio" ocultar-cerrar-sesion>
-            <button type="button" class="btn-secundario" id="linkInicio">Inicio</button>
-            <button type="button" class="btn-outline" id="linkPedido">Hacer Pedido</button>
-            <button type="button" class="btn-outline" id="linkMostrarLogin">Iniciar Sesión</button>
+    <div class="layout-grid">
+        <cafefe-navbar titulo="Cafefe" ocultar-cerrar-sesion>
+            <button type="button" class="btn-outline" onclick="window.location.href='./index.html'">Inicio</button>
         </cafefe-navbar>
 
         <main>
-            <section class="vista-inicio" id="vistaInicio">
-                <div class="hero-contenedor">
-                    <div class="hero-texto">
-                        <span class="eyebrow-text">Cafetería Artesanal</span>
-                        <h1>¡Tu café favorito, listo cuando llegues!</h1>
-                        <p class="descripcion-general">
-                            Explora nuestro menú de bebidas calientes, cafés fríos, postres y desayunos. Realiza tu pedido en línea sin filas y paga cómodamente al recoger en nuestro local.
-                        </p>
-                        <div class="pasos-grid">
-                            <div class="paso-item">
-                                <div class="paso-numero">1</div>
-                                <div class="paso-texto">
-                                    <strong>Elige tu categoría</strong>
-                                    <span>Bebidas, postres y más</span>
-                                </div>
-                            </div>
-                            <div class="paso-item">
-                                <div class="paso-numero">2</div>
-                                <div class="paso-texto">
-                                    <strong>Personaliza tu orden</strong>
-                                    <span>Tamaño y cantidad</span>
-                                </div>
-                            </div>
-                            <div class="paso-item">
-                                <div class="paso-numero">3</div>
-                                <div class="paso-texto">
-                                    <strong>Recoge y paga</strong>
-                                    <span>Directo en el local</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="hero-acciones">
-                            <button type="button" id="btnIrPedido" class="btn-principal">ORDENAR AHORA</button>
-                        </div>
-                    </div>
-                    <div class="hero-grafico">
-                        <div class="circulo-decorativo">
-                            <img src="./resources/img/logo_cafe.png" alt="Cafefe" class="hero-logo-grande">
-                        </div>
-                    </div>
-                </div>
-            </section>
+            <pedido-model></pedido-model>
         </main>
 
         <footer class="footer-cafefe">
@@ -79,88 +25,6 @@
     </div>
 
     <script type="module" src="./js/boundary/main.js"></script>
-    <script type="module">
-        import SessionManager from "./js/control/session_manager.js";
-        import "./js/boundary/components/cafefe_navbar.js";
-        import "./js/boundary/login_model.js";
-
-        const sessionManager = new SessionManager();
-        const contenedorInicio = document.getElementById("contenedorInicio");
-        const seccionLogin = document.getElementById("seccionLogin");
-        const navbarInicio = document.getElementById("navbarInicio");
-        const btnPedido = document.getElementById("btnIrPedido");
-        const linkPedido = document.getElementById("linkPedido");
-        const linkMostrarLogin = document.getElementById("linkMostrarLogin");
-
-        function abrirVistaLogin() {
-            contenedorInicio.classList.add("oculto");
-            seccionLogin.classList.remove("oculto");
-        }
-
-        function redirigirSegunSesion(sesion) {
-            if (!sesion) return;
-            if (sesion.modo === "CLIENTE") {
-                window.location.href = "./pedido.html";
-                return;
-            }
-            switch (sesion.vistaInicial) {
-                case "BARISTA":
-                    window.location.href = "./orden.html";
-                    break;
-                case "CAJERO":
-                    window.location.href = "./pago.html";
-                    break;
-                case "GERENTE":
-                default:
-                    window.location.href = "./pedido.html";
-                    break;
-            }
-        }
-
-        // Botón ORDENAR AHORA (Cliente)
-        if (btnPedido) {
-            btnPedido.addEventListener("click", () => {
-                sessionManager.iniciarModoCliente();
-                window.location.href = "./pedido.html";
-            });
-        }
-
-        // Botón "Hacer Pedido" del menú superior
-        if (linkPedido) {
-            linkPedido.addEventListener("click", (e) => {
-                e.preventDefault();
-                sessionManager.iniciarModoCliente();
-                window.location.href = "./pedido.html";
-            });
-        }
-
-        // Botón "Iniciar Sesión" -> si ya hay empleado logueado lleva a su estación; si no, abre <login-model>
-        if (linkMostrarLogin) {
-            linkMostrarLogin.addEventListener("click", (e) => {
-                e.preventDefault();
-                const sesionActual = sessionManager.obtenerSesion();
-                if (sesionActual && sesionActual.modo === "EMPLEADO") {
-                    redirigirSegunSesion(sesionActual);
-                } else {
-                    abrirVistaLogin();
-                }
-            });
-        }
-
-        // Mostrar botón <boton-cerrar-sesion> en <cafefe-navbar> SOLO si ingresó con login de empleado
-        const sesionGuardada = sessionManager.obtenerSesion();
-        if (sesionGuardada && sesionGuardada.modo === "EMPLEADO" && navbarInicio) {
-            if (linkMostrarLogin) {
-                linkMostrarLogin.textContent = `Estación (${sesionGuardada.nombre})`;
-            }
-            navbarInicio.setAttribute("usuario", `${sesionGuardada.nombre} · ${sesionGuardada.vistaInicial}`);
-            navbarInicio.removeAttribute("ocultar-cerrar-sesion");
-        }
-
-        document.addEventListener("cerrar-sesion", () => {
-            sessionManager.cerrarSesion();
-            window.location.href = "./login.html";
-        });
-    </script>
+    <script type="module" src="./js/boundary/pedido_model.js"></script>
 </body>
 </html>

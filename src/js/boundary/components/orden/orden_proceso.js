@@ -1,81 +1,39 @@
+import "./badge_tiempo_orden.js";
+
 class OrdenProceso extends HTMLElement {
     constructor() {
         super();
         this._root = this.attachShadow({ mode: "open" });
         this._orden = null;
         this._productos = [];
-        this._intervaloTiempo = null;
     }
 
     set ordenActual(valor) {
         this._orden = valor?.orden || null;
         this._productos = Array.isArray(valor?.productos) ? valor.productos : [];
         this._dibujar();
-        this._iniciarTimer();
     }
 
     connectedCallback() {
         this._dibujar();
-        this._iniciarTimer();
     }
 
-    disconnectedCallback() {
-        if (this._intervaloTiempo) clearInterval(this._intervaloTiempo);
+    _actualizarProgreso() {
+        const listos = this._productos.filter(p => p.listo).length;
+        const total = this._productos.length;
+        const contador = this._root.querySelector("#contadorListos");
+        const btnCompletar = this._root.querySelector("#btnCompletar");
+
+        if (contador) contador.textContent = `${listos} / ${total} listos`;
+        if (btnCompletar) btnCompletar.disabled = total === 0 || listos < total;
     }
 
-    _iniciarTimer() {
-        if (this._intervaloTiempo) clearInterval(this._intervaloTiempo);
-        if (!this._orden) return;
-        this._intervaloTiempo = setInterval(() => {
-            this._actualizarTiempo();
-        }, 30000);
-    }
-
-    _parsearFecha(fecha) {
-        if (!fecha) return null;
-        if (Array.isArray(fecha)) {
-            const [anio, mes, dia, hora = 0, min = 0, seg = 0] = fecha;
-            return new Date(anio, mes - 1, dia, hora, min, seg);
-        }
-        const limpia = String(fecha).trim().replace(/\[.*\]$/, "");
-        const d = new Date(limpia);
-        return Number.isNaN(d.getTime()) ? null : d;
-    }
-
-    _calcularTiempoPreparacion() {
-        const fecha = this._orden?.fechaCreacion || this._orden?.fecha_creacion;
-        const creacion = this._parsearFecha(fecha);
-        if (!creacion) return { texto: "", clase: "" };
-
-        const diffMs = Date.now() - creacion.getTime();
-        const diffMin = Math.max(0, Math.floor(diffMs / 60000));
-        const texto = diffMin === 0 ? "Recién tomada (< 1 min)" : `En espera: ${diffMin} min`;
-
-        let clase = "tiempo-verde";
-        if (diffMin >= 15) clase = "tiempo-rojo";
-        else if (diffMin >= 8) clase = "tiempo-amarillo";
-
-        return { texto, clase };
-    }
-
-    _actualizarTiempo() {
-        const badge = this._root.querySelector("#badgeTiempoProceso");
-        if (!badge) return;
-        const { texto, clase } = this._calcularTiempoPreparacion();
-        if (texto) {
-            badge.textContent = `⏱ ${texto}`;
-            badge.className = `tiempo-proceso ${clase}`;
-        }
-    }
-
-    _limpiarNota(obs = "") {
-        return String(obs || "")
-            .replace(/\s*\|\s*\[ESTADO:[^\]]*\]/g, "")
-            .replace(/^\[ESTADO:[^\]]*\]\s*\|?\s*/g, "")
-            .replace(/\[CLIENTE:\s*[^\]]+\]\s*\|\s*/gi, "")
-            .replace(/\s*\|\s*\[CLIENTE:\s*[^\]]+\]/gi, "")
-            .replace(/^\[CLIENTE:\s*[^\]]+\]$/gi, "")
-            .trim();
+    _emitirAccion(evento) {
+        this.dispatchEvent(new CustomEvent(evento, {
+            detail: this._orden,
+            bubbles: true,
+            composed: true
+        }));
     }
 
     _dibujar() {
@@ -94,27 +52,6 @@ class OrdenProceso extends HTMLElement {
         const tituloCliente = this._orden.clienteNombre
             ? `Orden #${uidCorto} — ${this._orden.clienteNombre}`
             : `Orden #${uidCorto}`;
-        const todosListos = this._productos.length > 0 && this._productos.every(p => p.listo);
-        const { texto: textoTiempo, clase: claseTiempo } = this._calcularTiempoPreparacion();
-        const tiempoHTML = textoTiempo
-            ? `<span id="badgeTiempoProceso" class="tiempo-proceso ${claseTiempo}">⏱ ${textoTiempo}</span>`
-            : "";
-
-        const listaHTML = this._productos.map((prod, idx) => {
-            const nota = prod.observacionesLimpias ?? this._limpiarNota(prod.observaciones);
-            return `
-                <label class="item-producto ${prod.listo ? "completado" : ""}">
-                    <input type="checkbox" data-index="${idx}" ${prod.listo ? "checked" : ""}>
-                    <div class="info-producto">
-                        <div class="fila-superior">
-                            <span class="nombre-producto">${prod.nombreProducto}</span>
-                            <span class="precio-producto">$${Number(prod.precio || 0).toFixed(2)}</span>
-                        </div>
-                        ${nota ? `<div class="observaciones">Nota: ${nota}</div>` : ""}
-                    </div>
-                </label>
-            `;
-        }).join("");
 
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/orden_proceso.css">
@@ -123,62 +60,83 @@ class OrdenProceso extends HTMLElement {
                     <div>
                         <div class="cabecera-badges">
                             <span class="etiqueta-activa">PREPARANDO AHORA</span>
-                            ${tiempoHTML}
+                            <badge-tiempo-orden id="badgeTiempo" prefijo="⏱ En espera:"></badge-tiempo-orden>
                         </div>
-                        <h3>${tituloCliente}</h3>
+                        <h3 id="tituloOrden"></h3>
                     </div>
-                    <span class="contador">${this._productos.filter(p => p.listo).length} / ${this._productos.length} listos</span>
+                    <span class="contador" id="contadorListos"></span>
                 </div>
 
-                <div class="lista-checklist">
-                    ${listaHTML}
-                </div>
+                <div class="lista-checklist" id="listaChecklist"></div>
 
                 <div class="acciones-proceso">
-                    <button type="button" class="btn-cancelar-proceso" id="btnCancelar">
-                        Cancelar Pedido
-                    </button>
-                    <button type="button" class="btn-devolver" id="btnDevolver">
-                        Devolver a Cola
-                    </button>
-                    <button type="button" class="btn-completar" id="btnCompletar" ${!todosListos ? "disabled" : ""}>
-                        Pedido Listo
-                    </button>
+                    <button type="button" class="btn-cancelar-proceso" id="btnCancelar">Cancelar Pedido</button>
+                    <button type="button" class="btn-devolver" id="btnDevolver">Devolver a Cola</button>
+                    <button type="button" class="btn-completar" id="btnCompletar">Pedido Listo</button>
                 </div>
             </div>
         `;
 
-        this._root.querySelectorAll('input[type="checkbox"]').forEach(chk => {
-            chk.addEventListener("change", (e) => {
-                const index = Number(e.target.dataset.index);
-                this._productos[index].listo = e.target.checked;
-                this._dibujar();
-            });
+        this._root.querySelector("#tituloOrden").textContent = tituloCliente;
+        const badge = this._root.querySelector("#badgeTiempo");
+        if (badge) badge.fecha = this._orden.fechaCreacion || this._orden.fecha_creacion;
+
+        const checklist = this._root.querySelector("#listaChecklist");
+        const fragment = document.createDocumentFragment();
+
+        this._productos.forEach((prod, idx) => {
+            const label = document.createElement("label");
+            label.className = `item-producto ${prod.listo ? "completado" : ""}`;
+
+            const chk = document.createElement("input");
+            chk.type = "checkbox";
+            chk.checked = Boolean(prod.listo);
+            chk.dataset.index = idx;
+
+            const info = document.createElement("div");
+            info.className = "info-producto";
+
+            const fila = document.createElement("div");
+            fila.className = "fila-superior";
+
+            const nombre = document.createElement("span");
+            nombre.className = "nombre-producto";
+            nombre.textContent = prod.nombreProducto;
+
+            const precio = document.createElement("span");
+            precio.className = "precio-producto";
+            precio.textContent = `$${Number(prod.precio || 0).toFixed(2)}`;
+
+            fila.append(nombre, precio);
+            info.appendChild(fila);
+
+            if (prod.observacionesLimpias) {
+                const obs = document.createElement("div");
+                obs.className = "observaciones";
+                obs.textContent = `Nota: ${prod.observacionesLimpias}`;
+                info.appendChild(obs);
+            }
+
+            label.append(chk, info);
+            fragment.appendChild(label);
         });
 
-        this._root.querySelector("#btnCancelar").addEventListener("click", () => {
-            this.dispatchEvent(new CustomEvent("cancelar-orden", {
-                detail: this._orden,
-                bubbles: true,
-                composed: true
-            }));
+        checklist.appendChild(fragment);
+        this._actualizarProgreso();
+
+        // Delegación única de eventos sin destruir el DOM al hacer clic
+        checklist.addEventListener("change", (e) => {
+            if (e.target.matches('input[type="checkbox"]')) {
+                const idx = Number(e.target.dataset.index);
+                this._productos[idx].listo = e.target.checked;
+                e.target.closest(".item-producto").classList.toggle("completado", e.target.checked);
+                this._actualizarProgreso();
+            }
         });
 
-        this._root.querySelector("#btnDevolver").addEventListener("click", () => {
-            this.dispatchEvent(new CustomEvent("devolver-orden", {
-                detail: this._orden,
-                bubbles: true,
-                composed: true
-            }));
-        });
-
-        this._root.querySelector("#btnCompletar").addEventListener("click", () => {
-            this.dispatchEvent(new CustomEvent("orden-completada", {
-                detail: this._orden,
-                bubbles: true,
-                composed: true
-            }));
-        });
+        this._root.querySelector("#btnCancelar").addEventListener("click", () => this._emitirAccion("cancelar-orden"));
+        this._root.querySelector("#btnDevolver").addEventListener("click", () => this._emitirAccion("devolver-orden"));
+        this._root.querySelector("#btnCompletar").addEventListener("click", () => this._emitirAccion("orden-completada"));
     }
 }
 

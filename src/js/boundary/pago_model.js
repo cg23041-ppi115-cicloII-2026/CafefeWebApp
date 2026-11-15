@@ -7,6 +7,7 @@ import FacturaOrdenProductoDAO from "../control/factura_orden_producto_dao.js";
 import PagoDAO from "../control/pago_dao.js";
 import PagoDetalleDAO from "../control/pago_detalle_dao.js";
 import SessionManager from "../control/session_manager.js";
+import HistorialFacturasModel from "./historial_facturas_model.js";
 
 import "./components/cafefe_navbar.js";
 import "./components/orden/tarjeta_horizontal.js";
@@ -21,6 +22,7 @@ class PagoModel extends HTMLElement {
         super();
         this._root = this.attachShadow({ mode: "open" });
         this._sessionManager = new SessionManager();
+        this._historialModel = new HistorialFacturasModel();
         this._ordenDAO = new OrdenDAO();
         this._productoDAO = new ProductoDAO();
         this._cajaDAO = new CajaDAO();
@@ -43,10 +45,8 @@ class PagoModel extends HTMLElement {
     connectedCallback() {
         if (!this._listenersRegistrados) {
             this._root.addEventListener("procesar-pago", e => this._procesarTransaccion(e.detail));
-            this._root.addEventListener("abrir-ticket-historico", e => {
-                const modalTicket = this._root.querySelector("modal-ticket-pdf");
-                if (modalTicket) modalTicket.abrir(e.detail);
-            });
+            this._root.addEventListener("recargar-historial", () => this._cargarHistorialFacturas());
+            this._root.addEventListener("seleccionar-factura", e => this._reimprimirFacturaHistorica(e.detail));
             this._root.addEventListener("cerrar-sesion", () => {
                 this._sessionManager.cerrarSesion();
                 window.location.replace("./login.html");
@@ -106,12 +106,30 @@ class PagoModel extends HTMLElement {
         return match ? match[1].trim() : "Consumidor Final";
     }
 
+    _obtenerPartesObservacion(obs = "") {
+        return String(obs || "")
+            .replace(/\[ESTADO:\s*([^\]]+)\]/gi, "$1")
+            .split("|")
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
+
     _extraerEstadoOficial(items = []) {
-        for (const item of items) {
-            const match = String(item?.observaciones || "").match(/\[ESTADO:\s*([^\]]+)\]/i);
-            if (match) return match[1].trim().toUpperCase();
-        }
+        const partes = this._obtenerPartesObservacion(items[0]?.observaciones || "");
+        const mayus = partes.map(p => p.toUpperCase());
+
+        if (mayus.some(p => p === "PAGADA" || p === "PAGADO")) return "PAGADA";
+        if (mayus.some(p => p.startsWith("CANCELADO"))) return "CANCELADO";
         return "PENDIENTE";
+    }
+
+    _construirObservacionPagada(obsActual) {
+        const partes = this._obtenerPartesObservacion(obsActual).filter(p => {
+            const up = p.toUpperCase();
+            return up !== "PAGADO" && up !== "PAGADA";
+        });
+        partes.push("PAGADA");
+        return partes.join(" | ");
     }
 
     _cargarCajaActiva() {
@@ -153,9 +171,32 @@ class PagoModel extends HTMLElement {
         });
     }
 
+    async _obtenerOrdenesYaFacturadas() {
+        try {
+            const res = await this._facturaDAO.findRange(0, 50);
+            const facturas = Array.isArray(res.datos) ? res.datos : [];
+            const codigosPagados = new Set();
+
+            facturas.forEach(f => {
+                if (String(f.estado || "").toUpperCase() === "PAGADA") {
+                    const match = String(f.observaciones || "").match(/Orden\s*#([A-Z0-9]+)/i);
+                    if (match) codigosPagados.add(match[1].toUpperCase());
+                }
+            });
+
+            return codigosPagados;
+        } catch {
+            return new Set();
+        }
+    }
+
     async _cargarOrdenesPorCobrar() {
         try {
-            const res = await this._ordenDAO.findRange(0, 50);
+            const [res, codigosPagados] = await Promise.all([
+                this._ordenDAO.findRange(0, 50),
+                this._obtenerOrdenesYaFacturadas()
+            ]);
+
             this._limpiarError();
             const crudos = Array.isArray(res.datos) ? res.datos : [];
 
@@ -171,13 +212,16 @@ class PagoModel extends HTMLElement {
 
             const evaluadas = await Promise.all(datos.map(async orden => {
                 try {
+                    const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
+                    if (codigosPagados.has(uidCorto)) return null;
+
                     const pDAO = new OrdenProductoDAO(orden.idOrden);
                     const rProd = await pDAO.findRange(0, 50);
                     const itemsCrudos = Array.isArray(rProd.datos) ? rProd.datos : [];
                     if (itemsCrudos.length === 0) return null;
 
                     const estado = this._extraerEstadoOficial(itemsCrudos);
-                    if (estado === "PAGADO" || estado.startsWith("CANCELADO")) {
+                    if (estado === "PAGADA" || estado === "CANCELADO") {
                         return null;
                     }
 
@@ -205,6 +249,40 @@ class PagoModel extends HTMLElement {
                 err,
                 () => this._cargarOrdenesPorCobrar()
             );
+        }
+    }
+
+    async _cargarHistorialFacturas() {
+        const vistaHistorial = this._root.querySelector("#vistaHistorial");
+        if (!vistaHistorial) return;
+
+        try {
+            this._limpiarError();
+            const facturas = await this._historialModel.obtenerFacturasOrdenadas();
+            vistaHistorial.facturas = facturas;
+        } catch (err) {
+            vistaHistorial.facturas = [];
+            this._mostrarError(
+                "Error al cargar el historial de facturas",
+                err,
+                () => this._cargarHistorialFacturas()
+            );
+        }
+    }
+
+    async _reimprimirFacturaHistorica(factura) {
+        const vistaHistorial = this._root.querySelector("#vistaHistorial");
+        if (vistaHistorial) vistaHistorial.cargandoId = factura.idFactura;
+
+        try {
+            this._limpiarError();
+            const detalleTicket = await this._historialModel.construirDetalleTicket(factura);
+            const modalTicket = this._root.querySelector("modal-ticket-pdf");
+            if (modalTicket) modalTicket.abrir(detalleTicket);
+        } catch (err) {
+            this._mostrarError("No se pudo reconstruir el comprobante de la factura", err);
+        } finally {
+            if (vistaHistorial) vistaHistorial.cargandoId = null;
         }
     }
 
@@ -249,13 +327,17 @@ class PagoModel extends HTMLElement {
             const idFactura = resFactura.datos?.id;
             if (!idFactura) throw new Error("El servidor no devolvió el ID de la factura creada.");
 
-            // 2. Vincular OrdenProductos a la Factura (POST /factura/{id}/ordenproducto)
+            // 2. Vincular OrdenProductos a la Factura guardando precio y observaciones completas + PAGADA
+            // (Sin tocar la tabla orden_producto para que conserve su traza hasta Entregado)
             const fopDAO = new FacturaOrdenProductoDAO(idFactura);
-            await Promise.all(productos.map(prod =>
-                fopDAO.create({
-                    idOrdenProducto: { idOrdenProducto: prod.idOrdenProducto }
-                })
-            ));
+            await Promise.all(productos.map(prod => {
+                const obsFinal = this._construirObservacionPagada(prod.observaciones);
+                return fopDAO.create({
+                    idOrdenProducto: { idOrdenProducto: prod.idOrdenProducto },
+                    precio: Number(prod.precio || 0),
+                    observaciones: obsFinal
+                });
+            }));
 
             // 3. Crear Pago maestro (POST /pago)
             const resPago = await this._pagoDAO.create({
@@ -277,24 +359,7 @@ class PagoModel extends HTMLElement {
                 })
             ));
 
-            // 5. Marcar productos de la orden como [ESTADO: PAGADO]
-            const opDAO = new OrdenProductoDAO(orden.idOrden);
-            await Promise.all(productos.map(prod => {
-                const baseObs = String(prod.observaciones || "")
-                    .replace(/\[ESTADO:[^\]]*\]/gi, "")
-                    .replace(/\s*\|\s*\|\s*/g, " | ")
-                    .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
-                    .trim();
-                const nuevaObs = baseObs ? `${baseObs} | [ESTADO: PAGADO]` : "[ESTADO: PAGADO]";
-                return opDAO.update(prod.idOrdenProducto, {
-                    idOrdenProducto: prod.idOrdenProducto,
-                    precio: Number(prod.precio || 0),
-                    observaciones: nuevaObs,
-                    idProducto: { idProducto: prod.idProducto }
-                });
-            }));
-
-            // 6. Mostrar Ticket PDF y actualizar cola
+            // 5. Mostrar Ticket PDF y actualizar cola
             const modalTicket = this._root.querySelector("modal-ticket-pdf");
             if (modalTicket) {
                 modalTicket.abrir({
@@ -368,6 +433,7 @@ class PagoModel extends HTMLElement {
         this._root.querySelector("#tabHistorial").addEventListener("click", () => {
             this._subvista = "historial";
             this._dibujarLayout();
+            this._cargarHistorialFacturas();
         });
 
         if (esCobro) {

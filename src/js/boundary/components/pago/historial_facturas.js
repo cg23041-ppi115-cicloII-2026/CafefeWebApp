@@ -1,26 +1,29 @@
-import HistorialFacturasModel from "../../historial_facturas_model.js";
 import "./tabla_facturas.js";
 
 class HistorialFacturas extends HTMLElement {
     constructor() {
         super();
         this._root = this.attachShadow({ mode: "open" });
-        this._model = new HistorialFacturasModel();
         this._facturas = [];
         this._filtro = "";
         this._cargandoId = null;
+        this._inicializado = false;
+    }
+
+    set facturas(lista) {
+        this._facturas = Array.isArray(lista) ? lista : [];
+        this._actualizarTabla();
+    }
+
+    set cargandoId(id) {
+        this._cargandoId = id;
+        this._actualizarTabla();
     }
 
     connectedCallback() {
-        this._dibujarEstructura();
-        this._cargarFacturas();
-    }
-
-    async _cargarFacturas() {
-        try {
-            this._facturas = await this._model.obtenerFacturasOrdenadas();
-        } catch {
-            this._facturas = [];
+        if (!this._inicializado) {
+            this._dibujarEstructura();
+            this._inicializado = true;
         }
         this._actualizarTabla();
     }
@@ -30,10 +33,10 @@ class HistorialFacturas extends HTMLElement {
         if (!q) return this._facturas;
 
         return this._facturas.filter(f => {
-            const num = f.numeroFormateado.toLowerCase();
+            const num = String(f.numeroFormateado || "").toLowerCase();
             const cli = String(f.cliente || "").toLowerCase();
             const obs = String(f.observaciones || "").toLowerCase();
-            const fecha = f.fechaFormateada.toLowerCase();
+            const fecha = String(f.fechaFormateada || "").toLowerCase();
             return num.includes(q) || cli.includes(q) || obs.includes(q) || fecha.includes(q);
         });
     }
@@ -48,23 +51,6 @@ class HistorialFacturas extends HTMLElement {
         }
     }
 
-    async _reimprimirFactura(factura) {
-        this._cargandoId = factura.idFactura;
-        this._actualizarTabla();
-
-        try {
-            const detalleTicket = await this._model.construirDetalleTicket(factura);
-            this.dispatchEvent(new CustomEvent("abrir-ticket-historico", {
-                detail: detalleTicket,
-                bubbles: true,
-                composed: true
-            }));
-        } finally {
-            this._cargandoId = null;
-            this._actualizarTabla();
-        }
-    }
-
     _dibujarEstructura() {
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/historial_facturas.css">
@@ -72,9 +58,9 @@ class HistorialFacturas extends HTMLElement {
                 <div class="barra-busqueda">
                     <h2>Historial de Facturas Emitidas</h2>
                     <div class="controles-busqueda">
-                        <input type="search" id="inputBuscarFactura" value="${this._filtro}"
+                        <input type="search" id="inputBuscarFactura"
                             placeholder="Buscar por # factura, orden, cliente o fecha...">
-                        <button type="button" class="btn-refrescar" id="btnRecargarHistorial">↻</button>
+                        <button type="button" class="btn-refrescar" id="btnRecargarHistorial" title="Actualizar historial">↻</button>
                     </div>
                 </div>
                 <tabla-facturas></tabla-facturas>
@@ -87,14 +73,11 @@ class HistorialFacturas extends HTMLElement {
         });
 
         this._root.querySelector("#btnRecargarHistorial").addEventListener("click", () => {
-            this._cargarFacturas();
+            this.dispatchEvent(new CustomEvent("recargar-historial", {
+                bubbles: true,
+                composed: true
+            }));
         });
-
-        this._root.addEventListener("seleccionar-factura", (e) => {
-            this._reimprimirFactura(e.detail);
-        });
-
-        this._actualizarTabla();
     }
 }
 

@@ -23,7 +23,7 @@ class PanelCobro extends HTMLElement {
 
     set procesando(valor) {
         this._procesando = Boolean(valor);
-        this._dibujar();
+        this._actualizarEstadoPagos();
     }
 
     connectedCallback() {
@@ -35,7 +35,7 @@ class PanelCobro extends HTMLElement {
             this._root.addEventListener("quitar-abono", (e) => {
                 e.stopPropagation();
                 this._abonos.splice(e.detail, 1);
-                this._dibujar();
+                this._actualizarEstadoPagos();
             });
             this._listenersRegistrados = true;
         }
@@ -64,7 +64,57 @@ class PanelCobro extends HTMLElement {
             monto: montoAplicado,
             referenciaExterna: referenciaExterna || ""
         });
-        this._dibujar();
+        this._actualizarEstadoPagos();
+    }
+
+    _actualizarEstadoPagos() {
+        if (!this._orden) return;
+
+        const { totalPedido, totalPagado, saldoRestante, vuelto } = this._calcularTotales();
+        const liquidado = saldoRestante === 0 && totalPedido > 0;
+
+        const badgeSaldo = this._root.querySelector("#badgeSaldo");
+        if (badgeSaldo) {
+            badgeSaldo.className = `saldo-badge ${liquidado ? "saldo-cero" : "saldo-pendiente"}`;
+            badgeSaldo.textContent = `SALDO RESTANTE: $${saldoRestante.toFixed(2)}`;
+        }
+
+        const subDetalle = this._root.querySelector("#subDetalle");
+        if (subDetalle?.configurar) {
+            subDetalle.configurar({
+                orden: this._orden,
+                productos: this._productos,
+                totalPedido,
+                saldoRestante
+            });
+        }
+
+        const subMetodos = this._root.querySelector("#subMetodos");
+        if (subMetodos) {
+            subMetodos.saldoRestante = saldoRestante;
+        }
+
+        const subResumen = this._root.querySelector("#subResumen");
+        if (subResumen?.configurar) {
+            subResumen.configurar({
+                abonos: this._abonos,
+                totalPagado,
+                vuelto
+            });
+        }
+
+        const btnLimpiar = this._root.querySelector("#btnLimpiarPagos");
+        if (btnLimpiar) {
+            btnLimpiar.disabled = this._abonos.length === 0 || this._procesando;
+        }
+
+        const btnFinalizar = this._root.querySelector("#btnFinalizar");
+        if (btnFinalizar) {
+            btnFinalizar.disabled = !liquidado || this._procesando;
+            btnFinalizar.textContent = this._procesando
+                ? "Registrando Factura..."
+                : "FINALIZAR TRANSACCIÓN E IMPRIMIR RECIBO →";
+        }
     }
 
     _dibujar() {
@@ -79,9 +129,6 @@ class PanelCobro extends HTMLElement {
             return;
         }
 
-        const { totalPedido, totalPagado, saldoRestante, vuelto } = this._calcularTotales();
-        const liquidado = saldoRestante === 0 && totalPedido > 0;
-
         this._root.innerHTML = `
             <link rel="stylesheet" href="./resources/estilos/components/panel_cobro.css">
             <div class="tpv-card">
@@ -90,9 +137,7 @@ class PanelCobro extends HTMLElement {
                 <div class="tpv-seccion">
                     <div class="seccion-titulo">
                         <span>Métodos Múltiples de Pago (Fraccionado)</span>
-                        <span class="saldo-badge ${liquidado ? "saldo-cero" : "saldo-pendiente"}">
-                            SALDO RESTANTE: $${saldoRestante.toFixed(2)}
-                        </span>
+                        <span class="saldo-badge saldo-pendiente" id="badgeSaldo"></span>
                     </div>
 
                     <div class="grid-pagos">
@@ -102,45 +147,21 @@ class PanelCobro extends HTMLElement {
                 </div>
 
                 <div class="tpv-footer">
-                    <button type="button" class="btn-limpiar" id="btnLimpiarPagos" ${this._abonos.length === 0 || this._procesando ? "disabled" : ""}>
-                        Reiniciar Pagos
-                    </button>
-                    <button type="button" class="btn-finalizar" id="btnFinalizar" ${!liquidado || this._procesando ? "disabled" : ""}>
-                        ${this._procesando ? "Registrando Factura..." : "FINALIZAR TRANSACCIÓN E IMPRIMIR RECIBO →"}
-                    </button>
+                    <button type="button" class="btn-limpiar" id="btnLimpiarPagos">Reiniciar Pagos</button>
+                    <button type="button" class="btn-finalizar" id="btnFinalizar"></button>
                 </div>
             </div>
         `;
 
-        const subDetalle = this._root.querySelector("#subDetalle");
-        const subMetodos = this._root.querySelector("#subMetodos");
-        const subResumen = this._root.querySelector("#subResumen");
-
-        if (subDetalle?.configurar) {
-            subDetalle.configurar({
-                orden: this._orden,
-                productos: this._productos,
-                totalPedido,
-                saldoRestante
-            });
-        }
-        if (subMetodos) {
-            subMetodos.saldoRestante = saldoRestante;
-        }
-        if (subResumen?.configurar) {
-            subResumen.configurar({
-                abonos: this._abonos,
-                totalPagado,
-                vuelto
-            });
-        }
+        this._actualizarEstadoPagos();
 
         this._root.querySelector("#btnLimpiarPagos").addEventListener("click", () => {
             this._abonos = [];
-            this._dibujar();
+            this._actualizarEstadoPagos();
         });
 
         this._root.querySelector("#btnFinalizar").addEventListener("click", () => {
+            const { totalPedido, totalPagado, vuelto } = this._calcularTotales();
             this.dispatchEvent(new CustomEvent("procesar-pago", {
                 detail: {
                     orden: this._orden,

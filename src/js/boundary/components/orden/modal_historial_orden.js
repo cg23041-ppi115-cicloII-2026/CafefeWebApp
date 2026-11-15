@@ -24,54 +24,66 @@ class ModalHistorialOrden extends HTMLElement {
                         <h3>Historial del Turno (Entregadas y Canceladas)</h3>
                         <button type="button" class="btn-cerrar-historial" id="btnCerrarHistorial">✕</button>
                     </div>
-                    <div class="lista-historial" id="contenedorHistorial">
-                        ${this._generarListaHTML()}
-                    </div>
+                    <div class="lista-historial" id="contenedorHistorial"></div>
                 </div>
             </div>
         `;
 
-        this._root.querySelector("#btnCerrarHistorial").addEventListener("click", () => {
-            this.cerrar();
-        });
+        const contenedor = this._root.querySelector("#contenedorHistorial");
 
-        this._root.querySelectorAll(".btn-reabrir").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-                const index = Number(e.target.dataset.index);
-                const item = this._items[index];
-                this.cerrar();
-                this.dispatchEvent(new CustomEvent("reabrir-orden", {
-                    detail: item,
-                    bubbles: true,
-                    composed: true
-                }));
+        if (!this._items.length) {
+            const vacio = document.createElement("p");
+            vacio.className = "sin-historial";
+            vacio.textContent = "No hay órdenes entregadas ni canceladas en este turno.";
+            contenedor.appendChild(vacio);
+        } else {
+            const fragment = document.createDocumentFragment();
+            this._items.forEach((it, idx) => {
+                const uidCorto = String(it.orden.idOrden || "0000").slice(-5).toUpperCase();
+                const fechaStr = it.orden.fechaCreacion
+                    ? new Date(it.orden.fechaCreacion).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" })
+                    : "";
+                const estadoTexto = it.estado === "cancelado" ? "Cancelada" : "Entregada";
+
+                const row = document.createElement("div");
+                row.className = `item-historial ${it.estado}`;
+
+                const info = document.createElement("div");
+                info.className = "item-historial-info";
+
+                const h4 = document.createElement("h4");
+                h4.textContent = `Orden #${uidCorto} · ${estadoTexto}${fechaStr ? ` (${fechaStr})` : ""}`;
+
+                const p = document.createElement("p");
+                p.textContent = it.detalleEstado || "Sin detalles";
+
+                info.append(h4, p);
+
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "btn-reabrir";
+                btn.dataset.index = idx;
+                btn.textContent = "Reabrir Pedido";
+
+                row.append(info, btn);
+                fragment.appendChild(row);
             });
-        });
-    }
-
-    _generarListaHTML() {
-        if (!this._items || this._items.length === 0) {
-            return `<p class="sin-historial">No hay órdenes entregadas ni canceladas en este turno.</p>`;
+            contenedor.appendChild(fragment);
         }
 
-        return this._items.map((it, idx) => {
-            const uidCorto = String(it.orden.idOrden || "0000").slice(-5).toUpperCase();
-            const fechaStr = it.orden.fechaCreacion 
-                ? new Date(it.orden.fechaCreacion).toLocaleTimeString("es-GT", { hour: "2-digit", minute: "2-digit" }) 
-                : "";
-            const estadoTexto = it.estado === "cancelado" ? "Cancelada" : "Entregada";
-            return `
-                <div class="item-historial ${it.estado}">
-                    <div class="item-historial-info">
-                        <h4>Orden #${uidCorto} &nbsp;·&nbsp; ${estadoTexto} ${fechaStr ? `(${fechaStr})` : ""}</h4>
-                        <p>${it.detalleEstado || "Sin detalles"}</p>
-                    </div>
-                    <button type="button" class="btn-reabrir" data-index="${idx}">
-                        Reabrir Pedido
-                    </button>
-                </div>
-            `;
-        }).join("");
+        this._root.querySelector("#btnCerrarHistorial").addEventListener("click", () => this.cerrar());
+
+        contenedor.addEventListener("click", (e) => {
+            const btn = e.target.closest(".btn-reabrir");
+            if (!btn) return;
+            const item = this._items[Number(btn.dataset.index)];
+            this.cerrar();
+            this.dispatchEvent(new CustomEvent("reabrir-orden", {
+                detail: item,
+                bubbles: true,
+                composed: true
+            }));
+        });
     }
 }
 

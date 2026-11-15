@@ -91,33 +91,80 @@ class OrdenModel extends HTMLElement {
         return match ? match[1].trim() : null;
     }
 
+    _obtenerPartesObservacion(obs = "") {
+        return String(obs || "")
+            .replace(/\[ESTADO:\s*([^\]]+)\]/gi, "$1")
+            .split("|")
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
+
     _extraerEstadoOficial(items = []) {
-        for (const item of items) {
-            const match = String(item?.observaciones || "").match(/\[ESTADO:\s*([^\]]+)\]/i);
-            if (match) return match[1].trim().toUpperCase();
-        }
+        const partes = this._obtenerPartesObservacion(items[0]?.observaciones || "");
+        const mayus = partes.map(p => p.toUpperCase());
+
+        if (mayus.some(p => p === "PAGADA" || p === "PAGADO")) return "PAGADA";
+        if (mayus.some(p => p.startsWith("CANCELADO"))) return "CANCELADO";
+        if (mayus.some(p => p.startsWith("ENTREGADO"))) return "ENTREGADO";
+        if (mayus.includes("LISTO")) return "LISTO";
+        if (mayus.includes("PREPARANDOSE")) return "PREPARANDOSE";
         return "PENDIENTE";
     }
 
-    _limpiarEtiquetasEstado(obs = "") {
-        return String(obs || "")
-            .replace(/\[ESTADO:[^\]]*\]/gi, "")
-            .replace(/\s*\|\s*\|\s*/g, " | ")
-            .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
-            .trim();
+    _extraerDetalleCanceladoOEntregado(obs = "") {
+        const partes = this._obtenerPartesObservacion(obs);
+        const encontrada = [...partes].reverse().find(p => {
+            const up = p.toUpperCase();
+            return up.startsWith("CANCELADO") || up.startsWith("ENTREGADO");
+        });
+        return encontrada || "Sin detalles";
     }
 
     _limpiarEtiquetasInternas(obs = "") {
-        return this._limpiarEtiquetasEstado(obs)
-            .replace(/\[CLIENTE:\s*[^\]]+\]/gi, "")
-            .replace(/\s*\|\s*\|\s*/g, " | ")
-            .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
-            .trim();
+        return this._obtenerPartesObservacion(obs)
+            .filter(p => !/^\[CLIENTE:/i.test(p))
+            .join(" | ");
     }
 
-    _construirObservacion(obsActual, etiquetaEstado) {
-        const base = this._limpiarEtiquetasEstado(obsActual);
-        return base ? `${base} | ${etiquetaEstado}` : etiquetaEstado;
+    _construirObservacion(obsActual, nuevaEtiqueta) {
+        const etiquetaLimpia = String(nuevaEtiqueta || "")
+            .replace(/\[ESTADO:\s*([^\]]+)\]/gi, "$1")
+            .trim();
+        const upNueva = etiquetaLimpia.toUpperCase();
+
+        // Al volver a cola o reabrir, se quitan estados previos de cierre/proceso para que quede limpia
+        let partes = this._obtenerPartesObservacion(obsActual).filter(p => {
+            const up = p.toUpperCase();
+            if (upNueva === "DEVUELTO A COLA" || upNueva === "REABIERTO") {
+                return (
+                    up !== "PREPARANDOSE" &&
+                    up !== "LISTO" &&
+                    up !== "DEVUELTO A COLA" &&
+                    up !== "REABIERTO" &&
+                    !up.startsWith("CANCELADO") &&
+                    !up.startsWith("ENTREGADO")
+                );
+            }
+            if (upNueva.startsWith("CANCELADO")) {
+                return (
+                    up !== "PREPARANDOSE" &&
+                    up !== "DEVUELTO A COLA" &&
+                    up !== "REABIERTO" &&
+                    !up.startsWith("CANCELADO")
+                );
+            }
+            return up !== "DEVUELTO A COLA" && up !== "REABIERTO";
+        });
+
+        // Al reabrir, regresa como pendiente limpia sin agregar "Reabierto" como estado final
+        if (upNueva === "REABIERTO") {
+            return partes.join(" | ");
+        }
+
+        if (!partes.some(p => p.toUpperCase() === upNueva)) {
+            partes.push(etiquetaLimpia);
+        }
+        return partes.join(" | ");
     }
 
     _normalizarProductos(itemsCrudos) {
@@ -162,7 +209,6 @@ class OrdenModel extends HTMLElement {
                 this._limpiarError();
                 const crudos = Array.isArray(res.datos) ? res.datos : [];
 
-                // Evitar órdenes duplicadas y ordenar FIFO (más antiguas primero)
                 const unicasMap = new Map();
                 crudos.forEach(o => {
                     if (o?.idOrden && !unicasMap.has(String(o.idOrden))) {
@@ -182,9 +228,9 @@ class OrdenModel extends HTMLElement {
 
                             const estado = this._extraerEstadoOficial(items);
                             if (
-                                estado.startsWith("ENTREGADO") ||
-                                estado.startsWith("CANCELADO") ||
-                                estado === "PAGADO"
+                                estado === "ENTREGADO" ||
+                                estado === "CANCELADO" ||
+                                estado === "PAGADA"
                             ) {
                                 return null;
                             }
@@ -241,19 +287,23 @@ class OrdenModel extends HTMLElement {
             });
     }
 
-    _actualizarProductosBD(idOrden, productos, etiquetaEstado) {
+ _actualizarProductosBD(idOrden, productos, etiquetaEstado) {
         const prodDAO = new OrdenProductoDAO(idOrden);
         const promesas = productos.map(prod => {
             const nuevaObs = this._construirObservacion(prod.observaciones, etiquetaEstado);
             prod.observaciones = nuevaObs;
             return prodDAO.update(prod.idOrdenProducto, {
                 idOrdenProducto: prod.idOrdenProducto,
+                idOrden: { idOrden },
+                idProducto: { idProducto: prod.idProducto },
                 precio: Number(prod.precio || 0),
-                observaciones: nuevaObs,
-                idProducto: { idProducto: prod.idProducto }
-            }).catch(err => console.warn(`Error update ${etiquetaEstado}:`, err));
+                observaciones: nuevaObs
+            });
         });
-        return Promise.all(promesas);
+        return Promise.all(promesas).catch(err => {
+            this._mostrarError(`No se pudo guardar el estado "${etiquetaEstado}" en orden_producto`, err);
+            throw err;
+        });
     }
 
     _tomarOrden(orden) {
@@ -282,7 +332,7 @@ class OrdenModel extends HTMLElement {
                 const clienteNombre = orden.clienteNombre || this._extraerCliente(orden, itemsCrudos);
                 const ordenConCliente = { ...orden, clienteNombre };
                 const productos = this._normalizarProductos(itemsCrudos);
-                this._actualizarProductosBD(orden.idOrden, productos, "[ESTADO: PREPARANDOSE]");
+                this._actualizarProductosBD(orden.idOrden, productos, "Preparandose");
 
                 this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
                 this._enProceso = { orden: ordenConCliente, productos };
@@ -302,7 +352,7 @@ class OrdenModel extends HTMLElement {
         const { orden: o, productos } = this._enProceso || { orden, productos: [] };
 
         if (productos.length > 0) {
-            this._actualizarProductosBD(o.idOrden, productos, "[ESTADO: DEVUELTO A COLA]");
+            this._actualizarProductosBD(o.idOrden, productos, "Devuelto a cola");
         }
         this._pendientes.unshift(o);
         this._enProceso = null;
@@ -314,7 +364,7 @@ class OrdenModel extends HTMLElement {
         const { orden: o, productos } = this._enProceso || { orden, productos: [] };
 
         if (productos.length > 0) {
-            this._actualizarProductosBD(o.idOrden, productos, "[ESTADO: LISTO]");
+            this._actualizarProductosBD(o.idOrden, productos, "Listo");
         }
         this._listas.unshift({ orden: o, productos });
         this._enProceso = null;
@@ -327,7 +377,7 @@ class OrdenModel extends HTMLElement {
 
         if (item && item.productos.length > 0) {
             const hora = new Date().toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" });
-            this._actualizarProductosBD(item.orden.idOrden, item.productos, `[ESTADO: ENTREGADO ${hora}]`);
+            this._actualizarProductosBD(item.orden.idOrden, item.productos, `Entregado ${hora}`);
         }
         this._listas = this._listas.filter(it => it.orden.idOrden !== orden.idOrden);
         this._renderizarListas();
@@ -356,7 +406,7 @@ class OrdenModel extends HTMLElement {
         this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
 
         const motivoLimpio = String(motivo || "").replace(/[\[\]|]/g, "").trim();
-        const etiqueta = motivoLimpio ? `[ESTADO: CANCELADO - ${motivoLimpio}]` : "[ESTADO: CANCELADO]";
+        const etiqueta = motivoLimpio ? `Cancelado - ${motivoLimpio}` : "Cancelado";
 
         if (productos.length > 0) {
             this._actualizarProductosBD(orden.idOrden, productos, etiqueta);
@@ -385,15 +435,13 @@ class OrdenModel extends HTMLElement {
                     return pDAO.findRange(0, 10).then(r => {
                         const items = Array.isArray(r.datos) ? r.datos : [];
                         const estadoOficial = this._extraerEstadoOficial(items);
-                        const esEntregado = estadoOficial.startsWith("ENTREGADO");
-                        const esCancelado = estadoOficial.startsWith("CANCELADO");
-                        if (esEntregado || esCancelado) {
+                        if (estadoOficial === "ENTREGADO" || estadoOficial === "CANCELADO") {
                             const clienteNombre = this._extraerCliente(orden, items);
                             return {
                                 orden: { ...orden, clienteNombre },
                                 productos: items,
-                                estado: esCancelado ? "cancelado" : "entregado",
-                                detalleEstado: estadoOficial
+                                estado: estadoOficial === "CANCELADO" ? "cancelado" : "entregado",
+                                detalleEstado: this._extraerDetalleCanceladoOEntregado(items[0]?.observaciones || "")
                             };
                         }
                         return null;
@@ -413,7 +461,7 @@ class OrdenModel extends HTMLElement {
     _reabrirOrden(itemHistorial) {
         const { orden, productos } = itemHistorial;
         const normalizados = this._normalizarProductos(productos);
-        this._actualizarProductosBD(orden.idOrden, normalizados, "[ESTADO: REABIERTO]")
+        this._actualizarProductosBD(orden.idOrden, normalizados, "Reabierto")
             .then(() => this._cargarOrdenes());
     }
 

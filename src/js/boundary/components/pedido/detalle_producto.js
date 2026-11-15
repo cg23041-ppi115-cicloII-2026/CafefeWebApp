@@ -146,13 +146,12 @@ class DetalleProducto extends HTMLElement {
             </style>
             <section class="detalle-contenedor" id="detalleProductoContenedor">
                 <div class="detalle-imagen-box">
-                    <img 
-                        src="${imagenSrc}" 
-                        alt="${p.nombre}" 
+                    <img
+                        src="${imagenSrc}"
+                        alt="${p.nombre}"
                         class="detalle-imagen"
                         id="imgDetalle-${p.idProducto}">
                 </div>
-
                 <div class="detalle-info" id="detalleInfo">
                     ${bannerPromoHtml}
                     <h1 class="detalle-nombre" id="nombreDetalle">${p.nombre}</h1>
@@ -190,7 +189,6 @@ class DetalleProducto extends HTMLElement {
             const select = document.createElement('select');
             select.id = `selectCar-${index}`;
             select.className = 'select-caracteristica';
-            select.style.cssText = 'padding: 0.55rem 0.9rem; border: 2px solid #4B3621; border-radius: 10px; background: #FFFFFF; color: #4B3621; font-weight: 600; font-size: 0.95rem; min-width: 190px; cursor: pointer;';
 
             grupo.opciones.forEach(op => {
                 const option = document.createElement('option');

@@ -97,7 +97,7 @@ class LoginCafefe extends HTMLElement {
                                         required
                                     >
                                     <button type="button" id="btnToggleUuid" class="btn-toggle-eye" aria-label="Mostrar u ocultar UUID">
-                                        👁️
+                                        Mostrar
                                     </button>
                                 </div>
                             </div>
@@ -133,11 +133,11 @@ class LoginCafefe extends HTMLElement {
         const btnToggleUuid = this.root.querySelector("#btnToggleUuid");
         const btnAccesoCliente = this.root.querySelector("#btnAccesoCliente");
 
-        btnToggleUuid.addEventListener("click", () => {
-            const esPassword = inputUuid.type === "password";
-            inputUuid.type = esPassword ? "text" : "password";
-            btnToggleUuid.textContent = esPassword ? "🙈" : "👁️";
-        });
+      btnToggleUuid.addEventListener("click", () => {
+    const esPassword = inputUuid.type === "password";
+    inputUuid.type = esPassword ? "text" : "password";
+    btnToggleUuid.textContent = esPassword ? "Ocultar" : "Mostrar";
+});
 
         form.addEventListener("submit", (e) => {
             e.preventDefault();

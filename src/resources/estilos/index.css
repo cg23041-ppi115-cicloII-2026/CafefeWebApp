@@ -200,10 +200,31 @@ main {
 }
 
 @media (max-width: 850px) {
+    .vista-inicio {
+        margin: 1rem auto;
+        padding: 0 0.75rem;
+    }
+
     .hero-contenedor {
         grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1.35rem;
     }
+
+    .hero-texto h1 {
+        font-size: 1.65rem;
+    }
+
     .pasos-grid {
         grid-template-columns: 1fr;
+    }
+
+    .btn-principal {
+        width: 100%;
+    }
+
+    .circulo-decorativo {
+        width: 150px;
+        height: 150px;
     }
 }

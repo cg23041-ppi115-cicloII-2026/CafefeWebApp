@@ -29,7 +29,7 @@ class PagoModel extends HTMLElement {
         this._cajaActiva = null;
 
         this._pagina = 0;
-        this._tamanoPagina = 10;
+        this._tamanoPagina = 4;
         this._hayMasPaginas = false;
 
         this._ordenesPorCobrar = []; // [{ orden, productos, total, cliente }]

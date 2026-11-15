@@ -93,7 +93,7 @@ class TarjetaOrden extends HTMLElement {
         const textoBoton = esPendiente ? "Tomar y Preparar" : "Marcar Entregado";
         const nombreEvento = esPendiente ? "tomar-orden" : "entregar-orden";
         const { texto: textoTiempo, clase: claseTiempo } = this._calcularTiempoEspera();
-        const tiempoBadgeHTML = textoTiempo
+        const tiempoBadgeHTML = (esPendiente && textoTiempo)
             ? `<span id="badgeTiempo" class="tiempo-badge ${claseTiempo}">${textoTiempo}</span>`
             : "";
 

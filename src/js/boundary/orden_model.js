@@ -18,7 +18,7 @@ class OrdenModel extends HTMLElement {
         this._mapaProductos = new Map();
 
         this._pagina = 0;
-        this._tamanoPagina = 10;
+        this._tamanoPagina = 3;
         this._hayMasPaginas = false;
 
         this._pendientes = [];

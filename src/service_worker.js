@@ -1,6 +1,5 @@
 
-const CACHE_NAME = "cafefe-app-v1.0.1";
-
+const CACHE_NAME = "cafefe-app-v1.0.2";//anteriormente estaba en v1.0.1, pero al cambiar el nombre de la carpeta de recursos a "resources" y mover los archivos de estilos y scripts a esa carpeta, se actualizó la versión del cache para forzar la actualización de los recursos en el navegador del usuario.
 const ARCHIVOS_CACHE = [
     "./",
     "./index.html",
@@ -57,6 +56,7 @@ const ARCHIVOS_CACHE = [
     "./js/boundary/components/pago/modal_ticket_pdf.js",
     "./js/boundary/components/pago/panel_cobro.js",
     "./js/boundary/components/pago/resumen_abonos_pago.js",
+    "./js/boundary/components/pedido/boton_guardar_orden.js",
     "./js/boundary/components/pedido/catalogo_productos.js",
     "./js/boundary/components/pedido/detalle_producto.js",
     "./js/boundary/components/pedido/grid_categorias.js",

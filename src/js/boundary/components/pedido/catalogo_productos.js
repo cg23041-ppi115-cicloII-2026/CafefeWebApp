@@ -1,4 +1,5 @@
 import '../tarjeta_simple.js';
+import './boton_guardar_orden.js';
 
 class CatalogoProductos extends HTMLElement {
     constructor() {
@@ -236,16 +237,14 @@ class CatalogoProductos extends HTMLElement {
             tabsContainer.appendChild(btn);
         });
 
-        // 3. Botón Guardar / Terminar Orden
+        // 3. Botón Guardar / Terminar Orden como Web Component
         const contenedorGuardar = this._root.getElementById('contenedorBtnGuardar');
         contenedorGuardar.innerHTML = '';
         if (!this._modoLectura && this._cantidadCarrito > 0) {
-            const btnGuardar = document.createElement('button');
-            btnGuardar.type = 'button';
-            btnGuardar.className = 'btn-guardar-orden';
+            const btnGuardar = document.createElement('boton-guardar-orden');
             btnGuardar.id = 'btnGuardarOrden';
-            btnGuardar.textContent = `Guardar (${this._cantidadCarrito})`;
-            btnGuardar.addEventListener('click', () => this._emitirVerOrden());
+            btnGuardar.setAttribute('cantidad', String(this._cantidadCarrito));
+            btnGuardar.addEventListener('guardar-orden', () => this._emitirVerOrden());
             contenedorGuardar.appendChild(btnGuardar);
         }
 

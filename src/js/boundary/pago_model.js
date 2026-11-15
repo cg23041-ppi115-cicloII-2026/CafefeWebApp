@@ -6,6 +6,7 @@ import FacturaDAO from "../control/factura_dao.js";
 import FacturaOrdenProductoDAO from "../control/factura_orden_producto_dao.js";
 import PagoDAO from "../control/pago_dao.js";
 import PagoDetalleDAO from "../control/pago_detalle_dao.js";
+import SessionManager from "../control/session_manager.js";
 
 import "./components/cafefe_navbar.js";
 import "./components/orden/tarjeta_horizontal.js";
@@ -19,6 +20,7 @@ class PagoModel extends HTMLElement {
     constructor() {
         super();
         this._root = this.attachShadow({ mode: "open" });
+        this._sessionManager = new SessionManager();
         this._ordenDAO = new OrdenDAO();
         this._productoDAO = new ProductoDAO();
         this._cajaDAO = new CajaDAO();
@@ -29,7 +31,7 @@ class PagoModel extends HTMLElement {
         this._cajaActiva = null;
 
         this._pagina = 0;
-        this._tamanoPagina = 4;
+        this._tamanoPagina = 3;
         this._hayMasPaginas = false;
 
         this._ordenesPorCobrar = []; // [{ orden, productos, total, cliente }]
@@ -45,6 +47,10 @@ class PagoModel extends HTMLElement {
                 const modalTicket = this._root.querySelector("modal-ticket-pdf");
                 if (modalTicket) modalTicket.abrir(e.detail);
             });
+            this._root.addEventListener("cerrar-sesion", () => {
+                this._sessionManager.cerrarSesion();
+                window.location.replace("./login.html");
+            });
             this._listenersRegistrados = true;
         }
 
@@ -53,6 +59,23 @@ class PagoModel extends HTMLElement {
             this._cargarCatalogoProductos(),
             this._cargarCajaActiva()
         ]).finally(() => this._cargarOrdenesPorCobrar());
+    }
+
+    _configurarSesionNavbar() {
+        const sesion = this._sessionManager.obtenerSesion();
+        const navbar = this._root.querySelector("cafefe-navbar") || document.querySelector("cafefe-navbar");
+
+        if (navbar) {
+            navbar.setAttribute("redirect-logout", "./login.html");
+
+            if (sesion && sesion.modo === "EMPLEADO") {
+                navbar.setAttribute("usuario", `${sesion.nombre} · ${sesion.vistaInicial}`);
+                navbar.removeAttribute("ocultar-cerrar-sesion");
+            } else {
+                navbar.removeAttribute("usuario");
+                navbar.setAttribute("ocultar-cerrar-sesion", "");
+            }
+        }
     }
 
     _mostrarError(titulo, err, accionReintentar = null) {
@@ -81,6 +104,14 @@ class PagoModel extends HTMLElement {
         const fuente = `${items[0]?.observaciones || ""} | ${orden?.observaciones || ""}`;
         const match = fuente.match(/\[CLIENTE:\s*([^\]]+)\]/i) || fuente.match(/Cliente:\s*([^|]+)/i);
         return match ? match[1].trim() : "Consumidor Final";
+    }
+
+    _extraerEstadoOficial(items = []) {
+        for (const item of items) {
+            const match = String(item?.observaciones || "").match(/\[ESTADO:\s*([^\]]+)\]/i);
+            if (match) return match[1].trim().toUpperCase();
+        }
+        return "PENDIENTE";
     }
 
     _cargarCajaActiva() {
@@ -123,12 +154,20 @@ class PagoModel extends HTMLElement {
     }
 
     async _cargarOrdenesPorCobrar() {
-        const first = this._pagina * this._tamanoPagina;
         try {
-            const res = await this._ordenDAO.findRange(first, this._tamanoPagina);
+            const res = await this._ordenDAO.findRange(0, 50);
             this._limpiarError();
-            const datos = Array.isArray(res.datos) ? res.datos : [];
-            this._hayMasPaginas = datos.length === this._tamanoPagina;
+            const crudos = Array.isArray(res.datos) ? res.datos : [];
+
+            const unicasMap = new Map();
+            crudos.forEach(o => {
+                if (o?.idOrden && !unicasMap.has(String(o.idOrden))) {
+                    unicasMap.set(String(o.idOrden), o);
+                }
+            });
+            const datos = Array.from(unicasMap.values()).sort(
+                (a, b) => new Date(a.fechaCreacion || 0) - new Date(b.fechaCreacion || 0)
+            );
 
             const evaluadas = await Promise.all(datos.map(async orden => {
                 try {
@@ -137,8 +176,8 @@ class PagoModel extends HTMLElement {
                     const itemsCrudos = Array.isArray(rProd.datos) ? rProd.datos : [];
                     if (itemsCrudos.length === 0) return null;
 
-                    const obs = itemsCrudos[0].observaciones || "";
-                    if (obs.includes("[ESTADO: PAGADO]") || obs.includes("[ESTADO: CANCELADO")) {
+                    const estado = this._extraerEstadoOficial(itemsCrudos);
+                    if (estado === "PAGADO" || estado.startsWith("CANCELADO")) {
                         return null;
                     }
 
@@ -242,7 +281,9 @@ class PagoModel extends HTMLElement {
             const opDAO = new OrdenProductoDAO(orden.idOrden);
             await Promise.all(productos.map(prod => {
                 const baseObs = String(prod.observaciones || "")
-                    .replace(/\s*\|\s*\[ESTADO:[^\]]*\]/g, "")
+                    .replace(/\[ESTADO:[^\]]*\]/gi, "")
+                    .replace(/\s*\|\s*\|\s*/g, " | ")
+                    .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
                     .trim();
                 const nuevaObs = baseObs ? `${baseObs} | [ESTADO: PAGADO]` : "[ESTADO: PAGADO]";
                 return opDAO.update(prod.idOrdenProducto, {
@@ -316,6 +357,8 @@ class PagoModel extends HTMLElement {
             `}
         `;
 
+        this._configurarSesionNavbar();
+
         this._root.querySelector("#tabCobro").addEventListener("click", () => {
             this._subvista = "cobro";
             this._dibujarLayout();
@@ -333,13 +376,13 @@ class PagoModel extends HTMLElement {
             this._root.querySelector("#paginador").addEventListener("pagina-anterior", () => {
                 if (this._pagina > 0) {
                     this._pagina--;
-                    this._cargarOrdenesPorCobrar();
+                    this._renderizar();
                 }
             });
             this._root.querySelector("#paginador").addEventListener("pagina-siguiente", () => {
                 if (this._hayMasPaginas) {
                     this._pagina++;
-                    this._cargarOrdenesPorCobrar();
+                    this._renderizar();
                 }
             });
         }
@@ -350,10 +393,19 @@ class PagoModel extends HTMLElement {
         if (!cont) return;
         cont.innerHTML = "";
 
-        if (this._ordenesPorCobrar.length === 0) {
-            cont.innerHTML = `<p class="texto-vacio">No hay órdenes pendientes de cobro en esta página.</p>`;
+        const totalPaginas = Math.max(1, Math.ceil(this._ordenesPorCobrar.length / this._tamanoPagina));
+        if (this._pagina >= totalPaginas) {
+            this._pagina = totalPaginas - 1;
+        }
+
+        const inicio = this._pagina * this._tamanoPagina;
+        const visibles = this._ordenesPorCobrar.slice(inicio, inicio + this._tamanoPagina);
+        this._hayMasPaginas = inicio + this._tamanoPagina < this._ordenesPorCobrar.length;
+
+        if (visibles.length === 0) {
+            cont.innerHTML = `<p class="texto-vacio">No hay órdenes pendientes de cobro.</p>`;
         } else {
-            this._ordenesPorCobrar.forEach(item => {
+            visibles.forEach(item => {
                 const uidCorto = String(item.orden.idOrden || "0000").slice(-5).toUpperCase();
                 const seleccionada = this._ordenSeleccionada?.orden?.idOrden === item.orden.idOrden;
 

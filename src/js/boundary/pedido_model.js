@@ -57,20 +57,26 @@ class PedidoModel extends HTMLElement {
         const navbar = document.querySelector('cafefe-navbar');
 
         if (navbar) {
+            navbar.setAttribute('redirect-logout', './login.html');
+
             if (sesion && sesion.modo === 'EMPLEADO') {
                 navbar.setAttribute('usuario', `${sesion.nombre} · ${sesion.vistaInicial}`);
                 navbar.removeAttribute('ocultar-cerrar-sesion');
             } else {
+                navbar.removeAttribute('usuario');
                 navbar.setAttribute('ocultar-cerrar-sesion', '');
             }
         }
 
-        document.addEventListener('cerrar-sesion', () => {
-            this.sessionManager.cerrarSesion();
-            window.location.href = './login.html';
-        });
+        if (!this._listenerLogoutRegistrado) {
+            this._listenerLogoutRegistrado = true;
+            document.addEventListener('cerrar-sesion', () => {
+                this.sessionManager.cerrarSesion();
+                window.location.replace('./login.html');
+            });
+        }
     }
-
+    
     _mostrarError(titulo, err, accionReintentar = null) {
         const zona = this.root.querySelector('#zonaErrores');
         if (!zona) return;

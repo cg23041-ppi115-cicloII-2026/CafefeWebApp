@@ -1,0 +1,57 @@
+:host {
+    display: block;
+    font-family: var(--fuente-principal);
+    color: var(--texto-principal);
+}
+
+.tabla-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+th {
+    background: var(--bg-contenedor);
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--borde-suave);
+    font-weight: 800;
+}
+
+td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--borde-suave);
+}
+
+.der {
+    text-align: right;
+}
+
+.vacio {
+    text-align: center;
+    color: var(--texto-secundario);
+    padding: 2rem;
+}
+
+.btn-ver-ticket {
+    background: var(--color-primario);
+    color: var(--texto-claro);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-ver-ticket:hover:not(:disabled) {
+    background: var(--color-primario-hover);
+}
+
+.btn-ver-ticket:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}

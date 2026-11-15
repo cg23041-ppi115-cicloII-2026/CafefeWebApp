@@ -35,10 +35,17 @@ class LoginModel extends HTMLElement {
             case 'CAJERO':
                 window.location.href = './pago.html';
                 break;
+            case 'ADMINISTRADOR':
+                window.location.href = './pago.html';
+                break;
+            case 'COCINERO':
+                window.location.href = './orden.html';
+                break;
             case 'GERENTE':
             default:
                 window.location.href = './pedido.html';
                 break;
+           
         }
     }
 

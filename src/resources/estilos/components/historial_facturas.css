@@ -1,0 +1,55 @@
+:host {
+    display: block;
+    font-family: var(--fuente-principal);
+    color: var(--texto-principal);
+}
+
+.panel-historial {
+    max-width: 1280px;
+    margin: 0 auto;
+    background: var(--bg-tarjeta);
+    border-radius: var(--radio-panel);
+    border: 1px solid var(--borde-suave);
+    box-shadow: var(--sombra-suave);
+    padding: 1.5rem;
+}
+
+.barra-busqueda {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.barra-busqueda h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.controles-busqueda {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    max-width: 460px;
+}
+
+input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1.5px solid var(--borde-suave);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.btn-refrescar {
+    background: var(--bg-app);
+    color: var(--texto-principal);
+    border: 1px solid var(--borde-suave);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+}

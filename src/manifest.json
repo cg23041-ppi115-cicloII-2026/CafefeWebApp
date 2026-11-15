@@ -32,5 +32,11 @@
             "sizes": "800x436",
             "type": "image/png"
         }
+    ],
+    "related_applications": [
+        {
+            "platform": "webapp",
+            "url": "http://127.0.0.1:3000/manifest.json"
+        }
     ]
 }

@@ -3,6 +3,10 @@
     font-family: var(--fuente-principal, system-ui, sans-serif);
 }
 
+:host([hidden]) {
+    display: none !important;
+}
+
 .btn-instalar {
     display: inline-flex;
     align-items: center;

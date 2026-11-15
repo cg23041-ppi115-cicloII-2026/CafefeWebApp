@@ -1,6 +1,7 @@
 import OrdenDAO from "../control/orden_dao.js";
 import OrdenProductoDAO from "../control/orden_producto_dao.js";
 import ProductoDAO from "../control/producto_dao.js";
+import SessionManager from "../control/session_manager.js";
 import "./components/cafefe_navbar.js";
 import "./components/orden/tarjeta_orden.js";
 import "./components/orden/orden_proceso.js";
@@ -13,6 +14,7 @@ class OrdenModel extends HTMLElement {
     constructor() {
         super();
         this._root = this.attachShadow({ mode: "open" });
+        this._sessionManager = new SessionManager();
         this._ordenDAO = new OrdenDAO();
         this._productoDAO = new ProductoDAO();
         this._mapaProductos = new Map();
@@ -24,12 +26,39 @@ class OrdenModel extends HTMLElement {
         this._pendientes = [];
         this._enProceso = null; // { orden, productos }
         this._listas = []; // [{ orden, productos }]
+        this._logoutListenerRegistrado = false;
     }
 
     connectedCallback() {
         this._dibujarLayout();
+        this._configurarSesionNavbar();
         this._cargarCatalogoProductos()
             .finally(() => this._cargarOrdenes());
+    }
+
+    _configurarSesionNavbar() {
+        const sesion = this._sessionManager.obtenerSesion();
+        const navbar = this._root.querySelector("cafefe-navbar") || document.querySelector("cafefe-navbar");
+
+        if (navbar) {
+            navbar.setAttribute("redirect-logout", "./login.html");
+
+            if (sesion && sesion.modo === "EMPLEADO") {
+                navbar.setAttribute("usuario", `${sesion.nombre} · ${sesion.vistaInicial}`);
+                navbar.removeAttribute("ocultar-cerrar-sesion");
+            } else {
+                navbar.removeAttribute("usuario");
+                navbar.setAttribute("ocultar-cerrar-sesion", "");
+            }
+        }
+
+        if (!this._logoutListenerRegistrado) {
+            this._logoutListenerRegistrado = true;
+            this._root.addEventListener("cerrar-sesion", () => {
+                this._sessionManager.cerrarSesion();
+                window.location.replace("./login.html");
+            });
+        }
     }
 
     _mostrarError(titulo, err, accionReintentar = null) {
@@ -62,18 +91,27 @@ class OrdenModel extends HTMLElement {
         return match ? match[1].trim() : null;
     }
 
+    _extraerEstadoOficial(items = []) {
+        for (const item of items) {
+            const match = String(item?.observaciones || "").match(/\[ESTADO:\s*([^\]]+)\]/i);
+            if (match) return match[1].trim().toUpperCase();
+        }
+        return "PENDIENTE";
+    }
+
     _limpiarEtiquetasEstado(obs = "") {
         return String(obs || "")
-            .replace(/\s*\|\s*\[ESTADO:[^\]]*\]/g, "")
-            .replace(/^\[ESTADO:[^\]]*\]\s*\|\s*/g, "")
+            .replace(/\[ESTADO:[^\]]*\]/gi, "")
+            .replace(/\s*\|\s*\|\s*/g, " | ")
+            .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
             .trim();
     }
 
     _limpiarEtiquetasInternas(obs = "") {
         return this._limpiarEtiquetasEstado(obs)
-            .replace(/\[CLIENTE:\s*[^\]]+\]\s*\|\s*/gi, "")
-            .replace(/\s*\|\s*\[CLIENTE:\s*[^\]]+\]/gi, "")
-            .replace(/^\[CLIENTE:\s*[^\]]+\]$/gi, "")
+            .replace(/\[CLIENTE:\s*[^\]]+\]/gi, "")
+            .replace(/\s*\|\s*\|\s*/g, " | ")
+            .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
             .trim();
     }
 
@@ -119,45 +157,57 @@ class OrdenModel extends HTMLElement {
     }
 
     _cargarOrdenes() {
-        const first = this._pagina * this._tamanoPagina;
-        this._ordenDAO.findRange(first, this._tamanoPagina)
+        this._ordenDAO.findRange(0, 50)
             .then(res => {
                 this._limpiarError();
-                const datos = Array.isArray(res.datos) ? res.datos : [];
-                this._hayMasPaginas = datos.length === this._tamanoPagina;
+                const crudos = Array.isArray(res.datos) ? res.datos : [];
+
+                // Evitar órdenes duplicadas y ordenar FIFO (más antiguas primero)
+                const unicasMap = new Map();
+                crudos.forEach(o => {
+                    if (o?.idOrden && !unicasMap.has(String(o.idOrden))) {
+                        unicasMap.set(String(o.idOrden), o);
+                    }
+                });
+                const datos = Array.from(unicasMap.values()).sort(
+                    (a, b) => new Date(a.fechaCreacion || 0) - new Date(b.fechaCreacion || 0)
+                );
 
                 const promesas = datos.map(orden => {
                     const prodDAO = new OrdenProductoDAO(orden.idOrden);
                     return prodDAO.findRange(0, 50)
                         .then(r => {
                             const items = Array.isArray(r.datos) ? r.datos : [];
+                            if (items.length === 0) return null;
+
+                            const estado = this._extraerEstadoOficial(items);
+                            if (
+                                estado.startsWith("ENTREGADO") ||
+                                estado.startsWith("CANCELADO") ||
+                                estado === "PAGADO"
+                            ) {
+                                return null;
+                            }
+
                             const clienteNombre = this._extraerCliente(orden, items);
+                            const notaOrden = this._limpiarEtiquetasInternas(orden.observaciones);
                             const ordenConCliente = {
                                 ...orden,
                                 clienteNombre,
                                 observaciones: clienteNombre
-                                    ? `Cliente: ${clienteNombre}${orden.observaciones ? ` | ${this._limpiarEtiquetasInternas(orden.observaciones)}` : ""}`
-                                    : orden.observaciones
+                                    ? `Cliente: ${clienteNombre}${notaOrden ? ` | ${notaOrden}` : ""}`
+                                    : notaOrden
                             };
 
-                            if (items.length === 0) return { tipo: "pendiente", orden: ordenConCliente };
-
-                            const obs = items[0].observaciones || "";
-                            if (obs.includes("[ESTADO: ENTREGADO") || obs.includes("[ESTADO: CANCELADO")) {
-                                return null;
-                            }
-                            if (obs.includes("[ESTADO: LISTO]")) {
+                            if (estado === "LISTO") {
                                 return { tipo: "lista", orden: ordenConCliente, productos: this._normalizarProductos(items) };
                             }
-                            if (obs.includes("[ESTADO: PREPARANDOSE]")) {
+                            if (estado === "PREPARANDOSE") {
                                 return { tipo: "proceso", orden: ordenConCliente, productos: this._normalizarProductos(items) };
                             }
                             return { tipo: "pendiente", orden: ordenConCliente };
                         })
-                        .catch(() => {
-                            const clienteNombre = this._extraerCliente(orden);
-                            return { tipo: "pendiente", orden: { ...orden, clienteNombre } };
-                        });
+                        .catch(() => null);
                 });
 
                 return Promise.all(promesas).then(resultados => {
@@ -305,7 +355,8 @@ class OrdenModel extends HTMLElement {
         }
         this._pendientes = this._pendientes.filter(o => o.idOrden !== orden.idOrden);
 
-        const etiqueta = `[ESTADO: CANCELADO - ${motivo}]`;
+        const motivoLimpio = String(motivo || "").replace(/[\[\]|]/g, "").trim();
+        const etiqueta = motivoLimpio ? `[ESTADO: CANCELADO - ${motivoLimpio}]` : "[ESTADO: CANCELADO]";
 
         if (productos.length > 0) {
             this._actualizarProductosBD(orden.idOrden, productos, etiqueta);
@@ -326,23 +377,23 @@ class OrdenModel extends HTMLElement {
         const modal = this._root.querySelector("modal-historial-orden");
         if (!modal) return;
 
-        this._ordenDAO.findRange(0, 30)
+        this._ordenDAO.findRange(0, 50)
             .then(res => {
                 const lista = Array.isArray(res.datos) ? res.datos : [];
                 const promesas = lista.map(orden => {
                     const pDAO = new OrdenProductoDAO(orden.idOrden);
                     return pDAO.findRange(0, 10).then(r => {
                         const items = Array.isArray(r.datos) ? r.datos : [];
-                        const obs = items[0]?.observaciones || "";
-                        const esEntregado = obs.includes("[ESTADO: ENTREGADO");
-                        const esCancelado = obs.includes("[ESTADO: CANCELADO");
+                        const estadoOficial = this._extraerEstadoOficial(items);
+                        const esEntregado = estadoOficial.startsWith("ENTREGADO");
+                        const esCancelado = estadoOficial.startsWith("CANCELADO");
                         if (esEntregado || esCancelado) {
                             const clienteNombre = this._extraerCliente(orden, items);
                             return {
                                 orden: { ...orden, clienteNombre },
                                 productos: items,
                                 estado: esCancelado ? "cancelado" : "entregado",
-                                detalleEstado: obs
+                                detalleEstado: estadoOficial
                             };
                         }
                         return null;
@@ -411,13 +462,13 @@ class OrdenModel extends HTMLElement {
         this._root.addEventListener("pagina-anterior", () => {
             if (this._pagina > 0) {
                 this._pagina--;
-                this._cargarOrdenes();
+                this._renderizarListas();
             }
         });
         this._root.addEventListener("pagina-siguiente", () => {
             if (this._hayMasPaginas) {
                 this._pagina++;
-                this._cargarOrdenes();
+                this._renderizarListas();
             }
         });
 
@@ -433,11 +484,20 @@ class OrdenModel extends HTMLElement {
         const contListas = this._root.querySelector("#contenedorListas");
         const visorProceso = this._root.querySelector("#visorProceso");
 
+        const totalPaginas = Math.max(1, Math.ceil(this._pendientes.length / this._tamanoPagina));
+        if (this._pagina >= totalPaginas) {
+            this._pagina = totalPaginas - 1;
+        }
+
+        const inicio = this._pagina * this._tamanoPagina;
+        const visibles = this._pendientes.slice(inicio, inicio + this._tamanoPagina);
+        this._hayMasPaginas = inicio + this._tamanoPagina < this._pendientes.length;
+
         contPendientes.innerHTML = "";
-        if (this._pendientes.length === 0) {
-            contPendientes.innerHTML = `<p class="texto-vacio">No hay pedidos pendientes en esta página.</p>`;
+        if (visibles.length === 0) {
+            contPendientes.innerHTML = `<p class="texto-vacio">No hay pedidos pendientes en cola.</p>`;
         } else {
-            this._pendientes.forEach(orden => {
+            visibles.forEach(orden => {
                 const card = document.createElement("tarjeta-orden");
                 card.modo = "pendiente";
                 card.datos = orden;

@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "cafefe-app-v1.0.2";//anteriormente estaba en v1.0.1, pero al cambiar el nombre de la carpeta de recursos a "resources" y mover los archivos de estilos y scripts a esa carpeta, se actualizó la versión del cache para forzar la actualización de los recursos en el navegador del usuario.
+const CACHE_NAME = "cafefe-app-v1.0.3";//anteriormente estaba en v1.0.1, pero al cambiar el nombre de la carpeta de recursos a "resources" y mover los archivos de estilos y scripts a esa carpeta, se actualizó la versión del cache para forzar la actualización de los recursos en el navegador del usuario.
 const ARCHIVOS_CACHE = [
     "./",
     "./index.html",
@@ -13,6 +13,24 @@ const ARCHIVOS_CACHE = [
     "./resources/img/logo_cafe_192.png",
     "./resources/img/logo_cafe_512.png",
 
+    // Imágenes de categorías
+    "./resources/img/categorias/bebidas.png",
+    "./resources/img/categorias/desayunos.png",
+    "./resources/img/categorias/merch.png",
+    "./resources/img/categorias/postres.png",
+    "./resources/img/categorias/temporada_y_combos.png",
+
+    // Imágenes representativas de productos
+    "./resources/img/productos/bebida_caliente.png",
+    "./resources/img/productos/bebida_fria.png",
+    "./resources/img/productos/cuerno.png",
+    "./resources/img/productos/pan-de-molde.png",
+    "./resources/img/productos/pastel.png",
+    "./resources/img/productos/reposteria.png",
+    "./resources/img/productos/termo.png",
+    "./resources/img/productos/te-verde.png",
+
+   // Estilos
     "./resources/estilos/index.css",
     "./resources/estilos/principal.css",
     "./resources/estilos/orden_model.css",

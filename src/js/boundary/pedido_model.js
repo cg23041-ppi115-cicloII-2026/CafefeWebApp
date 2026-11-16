@@ -27,9 +27,11 @@ function normalizarNombreImagen(texto = '') {
         .replace(/\s+/g, '_');
 }
 
-function resolverRutaImagen(nombre) {
+function resolverRutaImagen(nombre, carpeta = '') {
     const slug = normalizarNombreImagen(nombre);
-    return slug ? `./resources/img/${slug}.png` : './resources/img/logo_cafe.png';
+    if (!slug) return './resources/img/logo_cafe.png';
+    const prefijo = carpeta ? `${carpeta}/` : '';
+    return `./resources/img/${prefijo}${slug}.png`;
 }
 
 class PedidoModel extends HTMLElement {
@@ -232,7 +234,7 @@ class PedidoModel extends HTMLElement {
                     return {
                         ...cat,
                         nombre: nombreFinal,
-                        imagen: cat.imagen || resolverRutaImagen(nombreFinal)
+                        imagen: cat.imagen || resolverRutaImagen(nombreFinal, 'categorias')
                     };
                 });
 

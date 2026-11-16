@@ -1,5 +1,7 @@
 import '../tarjeta_simple.js';
 
+const IMAGEN_FALLBACK = './resources/img/logo_cafe.png';
+
 class GridCategorias extends HTMLElement {
     constructor() {
         super();
@@ -65,7 +67,7 @@ class GridCategorias extends HTMLElement {
             card.id = `cardCat-${cat.idTipoProducto}`;
             card.addEventListener('click', () => this._seleccionarCategoria(cat));
 
-            const imagenSrc = cat.imagen || './resources/img/logo_cafe.png';
+            const imagenSrc = cat.imagen || IMAGEN_FALLBACK;
 
             card.innerHTML = `
                 <div slot="titulo" class="cat-imagen-box">
@@ -85,6 +87,13 @@ class GridCategorias extends HTMLElement {
                     <span>→</span>
                 </div>
             `;
+
+            const img = card.querySelector('img');
+            img.addEventListener('error', () => {
+                if (!img.src.endsWith('logo_cafe.png')) {
+                    img.src = IMAGEN_FALLBACK;
+                }
+            }, { once: true });
 
             grid.appendChild(card);
         });

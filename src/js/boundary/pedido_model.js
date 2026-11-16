@@ -18,6 +18,20 @@ import OrdenDAO from '../control/orden_dao.js';
 import OrdenProductoDAO from '../control/orden_producto_dao.js';
 import Orden from '../entity/orden.js';
 
+function normalizarNombreImagen(texto = '') {
+    return texto
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
+}
+
+function resolverRutaImagen(nombre) {
+    const slug = normalizarNombreImagen(nombre);
+    return slug ? `./resources/img/imagen/${slug}.png` : './resources/img/logo_cafe.png';
+}
+
 class PedidoModel extends HTMLElement {
     constructor() {
         super();
@@ -55,10 +69,8 @@ class PedidoModel extends HTMLElement {
     _configurarSesionNavbar() {
         const sesion = this.sessionManager.obtenerSesion();
         const navbar = document.querySelector('cafefe-navbar');
-
         if (navbar) {
             navbar.setAttribute('redirect-logout', './login.html');
-
             if (sesion && sesion.modo === 'EMPLEADO') {
                 navbar.setAttribute('usuario', `${sesion.nombre} · ${sesion.vistaInicial}`);
                 navbar.removeAttribute('ocultar-cerrar-sesion');
@@ -67,7 +79,6 @@ class PedidoModel extends HTMLElement {
                 navbar.setAttribute('ocultar-cerrar-sesion', '');
             }
         }
-
         if (!this._listenerLogoutRegistrado) {
             this._listenerLogoutRegistrado = true;
             document.addEventListener('cerrar-sesion', () => {
@@ -76,7 +87,7 @@ class PedidoModel extends HTMLElement {
             });
         }
     }
-    
+
     _mostrarError(titulo, err, accionReintentar = null) {
         const zona = this.root.querySelector('#zonaErrores');
         if (!zona) return;
@@ -185,16 +196,18 @@ class PedidoModel extends HTMLElement {
                 this._cargarMapaDescuentosVigentes()
             ]);
             this._limpiarError();
+
             const categoriasRaw = (respCategorias.datos || []).filter(cat => cat.activo !== false);
             const listaProductos = (respProductos.datos || []).filter(p => p.activo !== false);
             this.caracteristicas = (respCar.datos || []).filter(c => c.activo !== false);
             this.tiposCaracteristica = (respTipoCar.datos || []).filter(tc => tc.activo !== false);
+
+            // Detectar si existe una categoría real de Descuentos en la BD (sin crear virtuales)
             const catDescuentosBD = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase().includes('descuento')
             );
-            this.idCategoriaDescuentos = catDescuentosBD
-                ? catDescuentosBD.idTipoProducto
-                : 'VIRTUAL_DESCUENTOS';
+            this.idCategoriaDescuentos = catDescuentosBD ? catDescuentosBD.idTipoProducto : null;
+
             const catBebidasMaestra = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase() === 'bebidas' || c.nombre.trim().toLowerCase() === 'bebida'
             );
@@ -208,25 +221,21 @@ class PedidoModel extends HTMLElement {
                     });
                 }
             });
-            const categoriasNormalizadas = categoriasRaw
+
+            // Solo usar las categorías reales que vienen de la base de datos
+            this.categorias = categoriasRaw
                 .filter(cat => !mapaRedireccionBebidas.has(cat.idTipoProducto))
-                .map(cat => ({
-                    ...cat,
-                    nombre: cat.idTipoProducto === catBebidasMaestra?.idTipoProducto
+                .map(cat => {
+                    const nombreFinal = cat.idTipoProducto === catBebidasMaestra?.idTipoProducto
                         ? 'Bebidas'
-                        : (cat.idTipoProducto === this.idCategoriaDescuentos ? 'Descuentos' : cat.nombre),
-                    imagen: './resources/img/logo_cafe.png'
-                }));
-            if (!catDescuentosBD) {
-                categoriasNormalizadas.push({
-                    idTipoProducto: this.idCategoriaDescuentos,
-                    nombre: 'Descuentos',
-                    activo: true,
-                    observaciones: 'Productos en promoción vigente',
-                    imagen: './resources/img/logo_cafe.png'
+                        : cat.nombre;
+                    return {
+                        ...cat,
+                        nombre: nombreFinal,
+                        imagen: cat.imagen || resolverRutaImagen(nombreFinal)
+                    };
                 });
-            }
-            this.categorias = categoriasNormalizadas;
+
             const productosEnriquecidos = await Promise.all(
                 listaProductos.map(async (prod) => {
                     let idTipoProducto = null;
@@ -240,7 +249,7 @@ class PedidoModel extends HTMLElement {
                             const idC = r.idTipoProducto?.idTipoProducto
                                 || r.tipoProducto?.idTipoProducto
                                 || (typeof r.idTipoProducto === 'string' ? r.idTipoProducto : null);
-                            return idC && idC !== this.idCategoriaDescuentos;
+                            return Boolean(idC);
                         });
                         if (relValida) {
                             let idCat =
@@ -274,7 +283,7 @@ class PedidoModel extends HTMLElement {
                         idTipoProducto,
                         nombreTipoProducto,
                         subcategoria: subcategoria || 'Todos',
-                        imagen: './resources/img/logo_cafe.png',
+                        imagen: prod.imagen || resolverRutaImagen(prod.nombre),
                         precioOriginal: precioBase,
                         precioSugerido: precioFinal,
                         tieneDescuento: Boolean(infoDesc),
@@ -400,7 +409,6 @@ class PedidoModel extends HTMLElement {
         if (sesion && sesion.modo === 'EMPLEADO' && sesion.idEmpleadoRolPrincipal) {
             return sesion.idEmpleadoRolPrincipal;
         }
-
         const base = this.ordenDAO.URL.replace(/orden\/$/, '');
         const respEmp = await fetch(`${base}empleado?first=0&max=50`);
         if (!respEmp.ok) return null;

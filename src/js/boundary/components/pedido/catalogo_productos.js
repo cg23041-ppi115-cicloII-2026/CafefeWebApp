@@ -104,10 +104,12 @@ class CatalogoProductos extends HTMLElement {
     _obtenerProductosPorCategoria() {
         if (!this._categoriaActivaId) return this._productos;
         if (this._esVistaDescuentos()) {
-            return this._productos.filter(p => p.tieneDescuento === true);
+            return this._productos.filter(
+                p => p.tieneDescuento === true || p.idTipoProducto === this._categoriaActivaId
+            );
         }
         return this._productos.filter(
-            p => p.idTipoProducto === this._categoriaActivaId && !p.tieneDescuento
+            p => p.idTipoProducto === this._categoriaActivaId
         );
     }
 
@@ -121,7 +123,6 @@ class CatalogoProductos extends HTMLElement {
             );
             return ['Todas', ...Array.from(campanas)];
         }
-
         const subs = new Set(
             prodsCat
                 .map(p => (p.subcategoria || '').trim())
@@ -190,7 +191,6 @@ class CatalogoProductos extends HTMLElement {
                     <h2 class="sidebar-titulo">Categorías</h2>
                     <ul class="sidebar-lista" id="listaSidebar"></ul>
                 </aside>
-
                 <main class="catalogo-principal" id="catalogoPrincipal">
                     <div class="barra-superior-catalogo" id="barraSuperior">
                         <div class="tabs-subcategorias" id="tabsSubcategorias"></div>
@@ -205,7 +205,6 @@ class CatalogoProductos extends HTMLElement {
 
     _dibujar() {
         this._crearEstructuraBase();
-
         const subcategorias = this._obtenerSubcategorias();
         const productosVisibles = this._obtenerProductosFiltrados();
 
@@ -251,7 +250,6 @@ class CatalogoProductos extends HTMLElement {
         // 4. Actualizar tarjetas de productos
         const gridProductos = this._root.getElementById('gridProductos');
         gridProductos.innerHTML = '';
-
         if (productosVisibles.length === 0) {
             const vacio = document.createElement('p');
             vacio.className = 'estado-vacio';
@@ -266,16 +264,13 @@ class CatalogoProductos extends HTMLElement {
             const card = document.createElement('tarjeta-simple');
             card.id = `cardProd-${prod.idProducto}`;
             card.style.cursor = 'pointer';
-
             const tieneDesc = prod.tieneDescuento === true && Number(prod.precioOriginal) > Number(prod.precioSugerido);
             const precioFormateado = Number(prod.precioSugerido || 0).toFixed(2);
             const precioOriginalFormateado = Number(prod.precioOriginal || 0).toFixed(2);
             const imagenSrc = prod.imagen || './resources/img/logo_cafe.png';
-
             const badgeHtml = tieneDesc
                 ? `<span class="badge-descuento">-${prod.porcentajeDescuento}% · ${prod.nombreDescuento || 'Promoción'}</span>`
                 : '';
-
             const bloquePrecioHtml = tieneDesc
                 ? `
                     <div class="precios-grupo">
@@ -287,7 +282,7 @@ class CatalogoProductos extends HTMLElement {
 
             card.innerHTML = `
                 <div slot="titulo" class="prod-img-wrap">
-                    <img src="${imagenSrc}" alt="${prod.nombre}" class="prod-img">
+                    <img src="${imagenSrc}" alt="${prod.nombre}" class="prod-img" onerror="this.onerror=null; this.src='./resources/img/logo_cafe.png';">
                 </div>
                 <div slot="contenido" class="prod-info">
                     ${badgeHtml}
@@ -303,14 +298,11 @@ class CatalogoProductos extends HTMLElement {
                     ` : ''}
                 </div>
             `;
-
             card.addEventListener('click', (e) => this._emitirSeleccionProducto(e, prod));
-
             if (!this._modoLectura) {
                 const btnAdd = card.querySelector(`#btnAdd-${prod.idProducto}`);
                 btnAdd.addEventListener('click', (e) => this._emitirSeleccionProducto(e, prod));
             }
-
             gridProductos.appendChild(card);
         });
     }

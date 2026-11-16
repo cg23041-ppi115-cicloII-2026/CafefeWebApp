@@ -29,7 +29,7 @@ function normalizarNombreImagen(texto = '') {
 
 function resolverRutaImagen(nombre) {
     const slug = normalizarNombreImagen(nombre);
-    return slug ? `./resources/img/imagen/${slug}.png` : './resources/img/logo_cafe.png';
+    return slug ? `./resources/img/${slug}.png` : './resources/img/logo_cafe.png';
 }
 
 class PedidoModel extends HTMLElement {

@@ -20,32 +20,38 @@
 
 .categorias-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.35rem;
 }
 
 .cat-imagen-box {
     width: 100%;
-    height: 150px;
+    height: 130px;
+    padding: 0.65rem;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
-    border-radius: var(--radio-tarjeta, 10px);
-    background-color: var(--vanilla-beige, #EDE0C8);
+    border-radius: 8px;
+    background: radial-gradient(circle, #fffdf9 0%, #f5ead6 100%);
 }
 
 .cat-imagen {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    max-height: 110px;
+    object-fit: contain;
     display: block;
 }
 
 .cat-nombre-box {
     text-align: center;
-    padding: 0.25rem 0;
+    padding: 0.2rem 0;
 }
 
 .cat-nombre {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--texto-principal, #4B3621);
 }

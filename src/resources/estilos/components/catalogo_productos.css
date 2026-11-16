@@ -125,16 +125,22 @@
 }
 
 .prod-img-wrap {
-    height: 135px;
-    border-radius: var(--radio-tarjeta, 10px);
+    height: 125px;
+    padding: 0.6rem;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
     overflow: hidden;
-    background-color: var(--vanilla-beige, #EDE0C8);
+    background: radial-gradient(circle, #fffdf9 0%, #f5ead6 100%);
 }
 
 .prod-img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    max-height: 105px;
+    object-fit: contain;
 }
 
 .prod-nombre {

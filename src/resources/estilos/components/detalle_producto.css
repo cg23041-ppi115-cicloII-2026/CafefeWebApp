@@ -22,14 +22,21 @@
 .detalle-imagen-box {
     border-radius: var(--radio-panel, 14px);
     overflow: hidden;
-    background-color: var(--vanilla-beige, #EDE0C8);
-    min-height: 300px;
+    background: radial-gradient(circle, #fffdf9 0%, #f5ead6 100%);
+    border: 1px solid #ede0c8;
+    min-height: 280px;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .detalle-imagen {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    max-height: 250px;
+    object-fit: contain;
     display: block;
 }
 

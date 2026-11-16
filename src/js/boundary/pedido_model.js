@@ -34,6 +34,41 @@ function resolverRutaImagen(nombre, carpeta = '') {
     return `./resources/img/${prefijo}${slug}.png`;
 }
 
+function resolverImagenProducto(subcategoria = '', categoria = '') {
+    const sub = normalizarNombreImagen(subcategoria);
+    const cat = normalizarNombreImagen(categoria);
+
+    // 1. Postres, Panadería y Repostería (van primero para evitar falsos positivos)
+    if (sub.includes('pastel') || sub.includes('tarta')) return './resources/img/productos/pastel.png';
+    if (sub.includes('panaderia') || sub.includes('croissant')) return './resources/img/productos/cuerno.png';
+    if (sub.includes('reposteria')) return './resources/img/productos/reposteria.png';
+
+    // 2. Bebidas (usando límite de palabra para "te" / "tes")
+    if (sub.includes('caliente')) return './resources/img/productos/bebida_caliente.png';
+    if (sub.includes('fria')) return './resources/img/productos/bebida_fria.png';
+    if (/(^|_)tes?(_|$)/.test(sub) || sub.includes('especialidad')) return './resources/img/productos/te-verde.png';
+
+    // 3. Desayunos, Merch y Combos
+    if (sub.includes('tostada') || sub.includes('salado') || sub.includes('desayuno')) {
+        return './resources/img/productos/pan-de-molde.png';
+    }
+    if (sub.includes('termo') || sub.includes('souvenir') || sub.includes('merch')) {
+        return './resources/img/productos/termo.png';
+    }
+    if (sub.includes('combo')) {
+        return './resources/img/categorias/temporada_y_combos.png';
+    }
+
+    // 4. Respaldo por categoría principal
+    if (cat.includes('bebida')) return './resources/img/productos/bebida_caliente.png';
+    if (cat.includes('postre')) return './resources/img/productos/pastel.png';
+    if (cat.includes('desayuno')) return './resources/img/productos/pan-de-molde.png';
+    if (cat.includes('merch')) return './resources/img/productos/termo.png';
+    if (cat.includes('combo')) return './resources/img/categorias/temporada_y_combos.png';
+
+    return './resources/img/logo_cafe.png';
+}
+
 class PedidoModel extends HTMLElement {
     constructor() {
         super();
@@ -285,7 +320,7 @@ class PedidoModel extends HTMLElement {
                         idTipoProducto,
                         nombreTipoProducto,
                         subcategoria: subcategoria || 'Todos',
-                        imagen: prod.imagen || resolverRutaImagen(prod.nombre),
+                        imagen: prod.imagen || resolverImagenProducto(subcategoria, nombreTipoProducto),
                         precioOriginal: precioBase,
                         precioSugerido: precioFinal,
                         tieneDescuento: Boolean(infoDesc),

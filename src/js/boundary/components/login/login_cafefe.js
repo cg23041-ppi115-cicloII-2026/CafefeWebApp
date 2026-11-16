@@ -61,6 +61,7 @@ class LoginCafefe extends HTMLElement {
                         <img src="${logoSrc}" alt="Logo Cafefe" class="brand-logo-main">
                         <h1 class="brand-title">Cafefe</h1>
                         <p class="brand-subtitle">Cafetería Artesanal · Sistema de Pedidos y Estaciones</p>
+                        <p class="lema">So far, so good!</p>
                     </div>
                 </div>
 

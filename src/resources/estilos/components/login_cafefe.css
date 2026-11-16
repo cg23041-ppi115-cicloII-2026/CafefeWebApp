@@ -87,6 +87,16 @@
     color: var(--vanilla-beige, #EDE0C8);
 }
 
+.lema {
+    margin: 0.75rem 0 0 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--vanilla-beige, #EDE0C8);
+
+}
+
 /* Panel derecho de formulario */
 .login-form-panel {
     background-color: var(--bg-contenedor, #f6efe2);

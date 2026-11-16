@@ -21,6 +21,7 @@ class ModalTicketPdf extends HTMLElement {
         const {
             idFactura,
             cliente,
+            cajero,
             orden,
             productos,
             abonos,
@@ -130,6 +131,7 @@ class ModalTicketPdf extends HTMLElement {
                         <div><strong>Factura:</strong> #F-${numFactura}</div>
                         <div><strong>Orden:</strong> ${numOrden}</div>
                         <div><strong>Cliente:</strong> ${nombreCliente}</div>
+                        <div><strong>Cajero:</strong> ${cajero || 'Caja Principal'}</div>
                         <div><strong>Fecha:</strong> ${fecha}</div>
                         <div class="linea"></div>
                         <table>

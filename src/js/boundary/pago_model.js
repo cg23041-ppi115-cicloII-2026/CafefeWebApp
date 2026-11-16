@@ -61,6 +61,12 @@ class PagoModel extends HTMLElement {
         ]).finally(() => this._cargarOrdenesPorCobrar());
     }
 
+    _obtenerNombreCajeroSesion() {
+        const sesion = this._sessionManager.obtenerSesion();
+        if (!sesion) return "Caja Principal";
+        return `${sesion.nombre || ""} ${sesion.apellido || ""}`.trim() || "Caja Principal";
+    }
+
     _configurarSesionNavbar() {
         const sesion = this._sessionManager.obtenerSesion();
         const navbar = this._root.querySelector("cafefe-navbar") || document.querySelector("cafefe-navbar");
@@ -106,6 +112,13 @@ class PagoModel extends HTMLElement {
         return match ? match[1].trim() : "Consumidor Final";
     }
 
+    _extraerCajero(factura = {}) {
+        const obs = String(factura?.observaciones || "");
+        const match = obs.match(/\[CAJERO:\s*([^\]]+)\]/i) || obs.match(/Cajero:\s*([^|]+)/i);
+        if (match) return match[1].trim();
+        return this._obtenerNombreCajeroSesion();
+    }
+
     _obtenerPartesObservacion(obs = "") {
         return String(obs || "")
             .replace(/\[ESTADO:\s*([^\]]+)\]/gi, "$1")
@@ -123,12 +136,13 @@ class PagoModel extends HTMLElement {
         return "PENDIENTE";
     }
 
-    _construirObservacionPagada(obsActual) {
+  _construirObservacionPagada(obsActual, nombreCajero = "Caja Principal") {
         const partes = this._obtenerPartesObservacion(obsActual).filter(p => {
             const up = p.toUpperCase();
-            return up !== "PAGADO" && up !== "PAGADA";
+            return up !== "PAGADO" && up !== "PAGADA" && !up.startsWith("CAJERO:");
         });
         partes.push("PAGADA");
+        partes.push(`Cajero: ${nombreCajero}`);
         return partes.join(" | ");
     }
 
@@ -278,7 +292,12 @@ class PagoModel extends HTMLElement {
             this._limpiarError();
             const detalleTicket = await this._historialModel.construirDetalleTicket(factura);
             const modalTicket = this._root.querySelector("modal-ticket-pdf");
-            if (modalTicket) modalTicket.abrir(detalleTicket);
+            if (modalTicket) {
+                modalTicket.abrir({
+                    ...detalleTicket,
+                    cajero: detalleTicket.cajero || this._extraerCajero(factura)
+                });
+            }
         } catch (err) {
             this._mostrarError("No se pudo reconstruir el comprobante de la factura", err);
         } finally {
@@ -286,7 +305,7 @@ class PagoModel extends HTMLElement {
         }
     }
 
-    async _procesarTransaccion(detallePago) {
+   async _procesarTransaccion(detallePago) {
         const { orden, productos, abonos, totalPedido, totalPagado, vuelto } = detallePago;
         const panel = this._root.querySelector("#visorCobro");
 
@@ -295,9 +314,10 @@ class PagoModel extends HTMLElement {
             return;
         }
 
-        const idEmpleadoRol = typeof orden.idEmpleadoRol === "object"
-            ? orden.idEmpleadoRol?.idEmpleadoRol
-            : orden.idEmpleadoRol;
+        const sesion = this._sessionManager.obtenerSesion();
+        const nombreCajero = this._obtenerNombreCajeroSesion();
+        const idEmpleadoRol = (sesion?.modo === "EMPLEADO" && sesion?.idEmpleadoRolPrincipal)
+            || (typeof orden.idEmpleadoRol === "object" ? orden.idEmpleadoRol?.idEmpleadoRol : orden.idEmpleadoRol);
 
         if (!idEmpleadoRol) {
             this._mostrarError("Orden sin empleado asignado", "La orden no tiene un idEmpleadoRol válido para facturar.");
@@ -322,16 +342,15 @@ class PagoModel extends HTMLElement {
                 cliente: clienteFactura,
                 fechaFacturacion: new Date().toISOString(),
                 estado: "PAGADA",
-                observaciones: `Orden #${String(orden.idOrden).slice(-5).toUpperCase()} | Cliente: ${clienteFactura}`
+                observaciones: `Orden #${String(orden.idOrden).slice(-5).toUpperCase()} | Cliente: ${clienteFactura} | Cajero: ${nombreCajero}`
             });
             const idFactura = resFactura.datos?.id;
             if (!idFactura) throw new Error("El servidor no devolvió el ID de la factura creada.");
 
-            // 2. Vincular OrdenProductos a la Factura guardando precio y observaciones completas + PAGADA
-            // (Sin tocar la tabla orden_producto para que conserve su traza hasta Entregado)
+            // 2. Vincular OrdenProductos a la Factura guardando precio, observaciones completas, PAGADA y Cajero
             const fopDAO = new FacturaOrdenProductoDAO(idFactura);
             await Promise.all(productos.map(prod => {
-                const obsFinal = this._construirObservacionPagada(prod.observaciones);
+                const obsFinal = this._construirObservacionPagada(prod.observaciones, nombreCajero);
                 return fopDAO.create({
                     idOrdenProducto: { idOrdenProducto: prod.idOrdenProducto },
                     precio: Number(prod.precio || 0),
@@ -343,7 +362,7 @@ class PagoModel extends HTMLElement {
             const resPago = await this._pagoDAO.create({
                 idFactura: { idFactura },
                 estado: "COMPLETADO",
-                observaciones: `Total: $${totalPedido.toFixed(2)} | Vuelto: $${vuelto.toFixed(2)}`
+                observaciones: `Total: $${totalPedido.toFixed(2)} | Vuelto: $${vuelto.toFixed(2)} | Cajero: ${nombreCajero}`
             });
             const idPago = resPago.datos?.id;
             if (!idPago) throw new Error("El servidor no devolvió el ID del pago registrado.");
@@ -354,8 +373,8 @@ class PagoModel extends HTMLElement {
                 pdDAO.create({
                     monto: Number(ab.monto),
                     tipoPago: ab.tipoPago,
-                    observaciones: `Pago ${ab.tipoPago}`,
-                    referenciaExterna: ab.referenciaExterna || null
+                    observaciones: `Pago ${ab.tipoPago} | Cajero: ${nombreCajero}`,
+                    referenciaExterna: ab.referenciaExterna || `Cajero: ${nombreCajero}`
                 })
             ));
 
@@ -365,6 +384,7 @@ class PagoModel extends HTMLElement {
                 modalTicket.abrir({
                     idFactura,
                     cliente: clienteFactura,
+                    cajero: nombreCajero,
                     orden: { ...orden, clienteNombre: clienteFactura },
                     productos,
                     abonos,

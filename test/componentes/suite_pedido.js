@@ -72,7 +72,7 @@ await runner.suite("2. <catalogo-productos>", async ({ test }) => {
         catalogo.productos = productosMock;
 
         let tarjetas = catalogo.shadowRoot.querySelectorAll("tarjeta-simple");
-        t.assertEqual(tarjetas.length, 2);
+        t.assertEqual(tarjetas.length, 3);
 
         catalogo.shadowRoot.getElementById("tabSub-Fríos").click();
         tarjetas = catalogo.shadowRoot.querySelectorAll("tarjeta-simple");

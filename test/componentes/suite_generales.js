@@ -1,11 +1,10 @@
 import { TestRunner } from "../test_runner.js";
 
-import "../../src/js/boundary/components/barra_busqueda.js";
-import "../../src/js/boundary/components/boton_cerrar_sesion.js";
 import "../../src/js/boundary/components/boton_instalar_pwa.js";
 import "../../src/js/boundary/components/cafefe_navbar.js";
 import "../../src/js/boundary/components/mensaje_error.js";
 import "../../src/js/boundary/components/tarjeta_simple.js";
+import "../../src/js/boundary/components/tarjeta_tipo_producto.js";
 
 const sandbox = document.getElementById("sandbox");
 const runner = new TestRunner(document.getElementById("resultados"));
@@ -21,111 +20,76 @@ function montar(tag, atributos = {}) {
     return el;
 }
 
-// 1. <barra-busqueda>
-await runner.suite("1. <barra-busqueda>", async ({ test }) => {
-    await test("Renderiza placeholder personalizado, sincroniza value y emite 'buscar'", (t) => {
-        const barra = montar("barra-busqueda", { placeholder: "Buscar cliente..." });
-        const input = barra.shadowRoot.querySelector("#inputBuscar");
-
-        t.assertEqual(input.placeholder, "Buscar cliente...");
-        t.assertEqual(barra.shadowRoot.querySelector("#btnRefrescar"), null, "Sin atributo mostrar-refrescar no debe dibujar botón");
-
-        let termino = null;
-        barra.addEventListener("buscar", e => { termino = e.detail; });
-
-        input.value = "sarita";
-        input.dispatchEvent(new Event("input"));
-
-        t.assertEqual(barra.value, "sarita");
-        t.assertEqual(termino, "sarita");
-    });
-
-    await test("Muestra botón de actualización con 'mostrar-refrescar' y emite 'refrescar'", (t) => {
-        const barra = montar("barra-busqueda", { "mostrar-refrescar": true });
-        const btn = barra.shadowRoot.querySelector("#btnRefrescar");
-        t.assertTrue(btn !== null, "Debe renderizar el botón refrescar");
-
-        let refrescado = false;
-        barra.addEventListener("refrescar", () => { refrescado = true; });
-        btn.click();
-        t.assertTrue(refrescado, "Debe emitir el evento 'refrescar'");
-    });
-});
-
-// 2. <boton-cerrar-sesion>
-await runner.suite("2. <boton-cerrar-sesion>", async ({ test }) => {
-    await test("Muestra etiqueta de usuario, texto personalizado y emite 'cerrar-sesion'", (t) => {
-        const btnComp = montar("boton-cerrar-sesion", {
-            usuario: "Ana · Caja",
-            texto: "Salir del Turno"
-        });
-
-        const badge = btnComp.shadowRoot.querySelector(".usuario-etiqueta");
-        const boton = btnComp.shadowRoot.querySelector("#btnCerrarSesion");
-
-        t.assertEqual(badge.textContent, "Ana · Caja");
-        t.assertEqual(boton.textContent, "Salir del Turno");
-
-        let cerro = false;
-        btnComp.addEventListener("cerrar-sesion", () => { cerro = true; });
-        boton.click();
-        t.assertTrue(cerro, "Debe emitir 'cerrar-sesion'");
-    });
-
-    await test("Oculta el badge de usuario cuando el atributo 'usuario' está vacío", (t) => {
-        const btnComp = montar("boton-cerrar-sesion");
-        t.assertEqual(btnComp.shadowRoot.querySelector(".usuario-etiqueta"), null);
-    });
-});
-
-// 3. <boton-instalar-pwa>
-await runner.suite("3. <boton-instalar-pwa>", async ({ test }) => {
+// 1. <boton-instalar-pwa>
+await runner.suite("1. <boton-instalar-pwa>", async ({ test }) => {
     await test("Se muestra cuando no está instalada y emite 'solicitar-instalacion-pwa' si no hay prompt nativo", async (t) => {
+        const originalGetRelated = navigator.getInstalledRelatedApps;
+        if ("getInstalledRelatedApps" in navigator) {
+            navigator.getInstalledRelatedApps = async () => [];
+        }
         localStorage.removeItem("cafefe_pwa_instalada");
-        const pwa = montar("boton-instalar-pwa");
-        await new Promise(r => setTimeout(r, 10));
 
-        t.assertFalse(pwa.hidden, "Debe estar visible si no está instalada");
-        let solicito = false;
-        pwa.addEventListener("solicitar-instalacion-pwa", () => { solicito = true; });
+        try {
+            const pwa = montar("boton-instalar-pwa");
+            await new Promise(r => setTimeout(r, 30));
 
-        pwa.shadowRoot.querySelector("#btnInstalarPwa").click();
-        t.assertTrue(solicito, "Debe emitir 'solicitar-instalacion-pwa'");
+            t.assertFalse(pwa.hidden, "Debe estar visible si no está instalada");
+            let solicito = false;
+            pwa.addEventListener("solicitar-instalacion-pwa", () => { solicito = true; });
+
+            const btn = pwa.shadowRoot.querySelector("#btnInstalarPwa");
+            t.assertTrue(btn !== null, "Debe renderizar el botón #btnInstalarPwa");
+            btn.click();
+            t.assertTrue(solicito, "Debe emitir 'solicitar-instalacion-pwa'");
+        } finally {
+            if (originalGetRelated) {
+                navigator.getInstalledRelatedApps = originalGetRelated;
+            }
+        }
     });
 
     await test("Se oculta automáticamente si localStorage indica que la PWA ya está instalada", async (t) => {
+        const originalGetRelated = navigator.getInstalledRelatedApps;
+        if ("getInstalledRelatedApps" in navigator) {
+            navigator.getInstalledRelatedApps = async () => [];
+        }
         localStorage.setItem("cafefe_pwa_instalada", "true");
-        const pwa = montar("boton-instalar-pwa");
-        await new Promise(r => setTimeout(r, 10));
 
-        t.assertTrue(pwa.hidden, "Debe ocultarse cuando cafefe_pwa_instalada es 'true'");
-        localStorage.removeItem("cafefe_pwa_instalada");
+        try {
+            const pwa = montar("boton-instalar-pwa");
+            await new Promise(r => setTimeout(r, 30));
+
+            t.assertTrue(pwa.hidden, "Debe ocultarse cuando cafefe_pwa_instalada es 'true'");
+        } finally {
+            localStorage.removeItem("cafefe_pwa_instalada");
+            if (originalGetRelated) {
+                navigator.getInstalledRelatedApps = originalGetRelated;
+            }
+        }
     });
 });
 
-// 4. <cafefe-navbar>
-await runner.suite("4. <cafefe-navbar>", async ({ test }) => {
-    await test("Renderiza título, subcomponentes y oculta botones según atributos", (t) => {
-        const nav = montar("cafefe-navbar", {
-            titulo: "Cafefe · Cocina",
-            usuario: "Carlos · Cocina",
-            "ocultar-instalar": true
-        });
+// 2. <cafefe-navbar>
+await runner.suite("2. <cafefe-navbar>", async ({ test }) => {
+    await test("Renderiza título y proyecta botones en el slot de acciones", (t) => {
+        sandbox.innerHTML = `
+            <cafefe-navbar titulo="Cafefe · Cocina">
+                <button id="btnSalirTest" class="btn-outline">Cerrar Sesión</button>
+            </cafefe-navbar>
+        `;
+        const nav = sandbox.querySelector("cafefe-navbar");
 
         t.assertEqual(nav.shadowRoot.querySelector(".navbar-titulo").textContent, "Cafefe · Cocina");
-        t.assertEqual(nav.shadowRoot.querySelector("boton-instalar-pwa"), null, "Debe ocultar instalar PWA");
 
-        const logout = nav.shadowRoot.querySelector("boton-cerrar-sesion");
-        t.assertTrue(logout !== null, "Debe mostrar cerrar sesión");
-        t.assertEqual(logout.getAttribute("usuario"), "Carlos · Cocina");
-
-        nav.setAttribute("ocultar-cerrar-sesion", "");
-        t.assertEqual(nav.shadowRoot.querySelector("boton-cerrar-sesion"), null, "Debe ocultar cerrar sesión al agregar atributo");
+        const slot = nav.shadowRoot.querySelector("slot");
+        const botones = slot ? slot.assignedElements() : [];
+        t.assertEqual(botones.length, 1, "Debe proyectar el botón inyectado en el navbar");
+        t.assertEqual(botones[0].id, "btnSalirTest");
     });
 });
 
-// 5. <mensaje-error>
-await runner.suite("5. <mensaje-error>", async ({ test }) => {
+// 3. <mensaje-error>
+await runner.suite("3. <mensaje-error>", async ({ test }) => {
     await test("Muestra título, código HTTP, detalle y emite 'reintentar-operacion' y 'cerrar-error'", (t) => {
         const alerta = montar("mensaje-error");
         alerta.titulo = "Fallo de conexión";
@@ -150,8 +114,8 @@ await runner.suite("5. <mensaje-error>", async ({ test }) => {
     });
 });
 
-// 6. <tarjeta-simple>
-await runner.suite("6. <tarjeta-simple>", async ({ test }) => {
+// 4. <tarjeta-simple>
+await runner.suite("4. <tarjeta-simple>", async ({ test }) => {
     await test("Proyecta los tres slots nombrados (titulo, contenido, pie)", (t) => {
         sandbox.innerHTML = `
             <tarjeta-simple>
@@ -167,6 +131,33 @@ await runner.suite("6. <tarjeta-simple>", async ({ test }) => {
         t.assertEqual(slots[0].assignedNodes()[0].textContent, "Encabezado");
         t.assertEqual(slots[1].assignedNodes()[0].textContent, "Descripción del producto");
         t.assertEqual(slots[2].assignedNodes()[0].textContent, "$4.50");
+    });
+});
+
+// 5. <tarjeta-tipoproducto>
+await runner.suite("5. <tarjeta-tipoproducto>", async ({ test }) => {
+    await test("Renderiza nombre, estado activo/inactivo, observaciones y emite 'seleccionar-tipo-producto'", (t) => {
+        const tarjeta = montar("tarjeta-tipoproducto");
+        tarjeta.datos = {
+            idTipoProducto: 1,
+            nombre: "Bebidas Calientes",
+            activo: true,
+            observaciones: "Café de especialidad"
+        };
+
+        const cardInterna = tarjeta.shadowRoot.querySelector("tarjeta-simple");
+        t.assertTrue(cardInterna !== null, "Debe renderizar <tarjeta-simple> interna");
+
+        const texto = cardInterna.textContent;
+        t.assertTrue(texto.includes("Bebidas Calientes"), "Debe mostrar el nombre del tipo de producto");
+        t.assertTrue(texto.includes("Café de especialidad"), "Debe mostrar las observaciones");
+        t.assertTrue(texto.includes("Activo"), "Debe mostrar estado Activo");
+
+        let seleccionado = null;
+        tarjeta.addEventListener("seleccionar-tipo-producto", e => { seleccionado = e.detail; });
+        cardInterna.click();
+
+        t.assertEqual(seleccionado.idTipoProducto, 1, "Debe emitir el tipo de producto al hacer clic");
     });
 });
 

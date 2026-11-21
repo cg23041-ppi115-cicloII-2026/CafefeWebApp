@@ -5,7 +5,9 @@
     --blanco: #FFFFFF;
 }
 
-* {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -18,78 +20,39 @@ body {
 
 .layout-grid {
     min-height: 100vh;
+    width: 100%;
     display: flex;
     flex-direction: column;
-}
-
-/* Header */
-.header-cafefe {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--coffee-brown);
-    color: var(--vanilla-beige);
-    padding: 0.9rem 2rem;
-    box-shadow: 0 3px 10px rgba(75, 54, 33, 0.25);
-}
-
-.marca-box {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.logo-img {
-    height: 38px;
-    width: auto;
-    border-radius: 6px;
-}
-
-.marca-nombre {
-    font-size: 1.5rem;
-    font-weight: 800;
-}
-
-.nav-links {
-    display: flex;
-    gap: 1.25rem;
-}
-
-.nav-links a {
-    color: var(--vanilla-beige);
-    text-decoration: none;
-    font-weight: 600;
-    padding: 0.4rem 0.9rem;
-    border-radius: 999px;
-    transition: background 0.2s;
-}
-
-.nav-links a:hover,
-.nav-links a.activo {
-    background-color: rgba(237, 224, 200, 0.2);
 }
 
 /* Main */
 main {
     flex-grow: 1;
+    width: 100%;
+    min-width: 0;
 }
 
 /* Hero de index.html */
 .vista-inicio {
+    width: 100%;
     max-width: 1150px;
-    margin: 3rem auto;
-    padding: 0 1.5rem;
+    margin: clamp(1rem, 3vw, 3rem) auto;
+    padding: 0 clamp(0.75rem, 2.5vw, 1.5rem);
 }
 
 .hero-contenedor {
     display: grid;
-    grid-template-columns: 1.3fr 1fr;
-    gap: 2.5rem;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: clamp(1.25rem, 3vw, 2.5rem);
     align-items: center;
     background-color: var(--blanco);
     border: 2px solid #d9c7a8;
     border-radius: 20px;
-    padding: 2.5rem;
+    padding: clamp(1.25rem, 3.5vw, 2.5rem);
+}
+
+.hero-texto {
+    min-width: 0;
 }
 
 .eyebrow-text {
@@ -104,27 +67,28 @@ main {
 
 .hero-texto h1 {
     margin: 0 0 1rem 0;
-    font-size: 2.3rem;
+    font-size: clamp(1.55rem, 3.2vw, 2.3rem);
     line-height: 1.2;
 }
 
 .descripcion-general {
     line-height: 1.6;
     color: #6b533b;
-    margin-bottom: 2rem;
+    margin-bottom: 1.75rem;
 }
 
 .pasos-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.75rem;
 }
 
 .paso-item {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    min-width: 0;
     background-color: var(--vanilla-beige);
     padding: 0.85rem;
     border-radius: 12px;
@@ -147,10 +111,11 @@ main {
     display: flex;
     flex-direction: column;
     font-size: 0.85rem;
+    min-width: 0;
 }
 
 .btn-principal {
-    padding: 1rem 2.2rem;
+    padding: 0.95rem 2rem;
     border: none;
     border-radius: 999px;
     background-color: var(--apple-red);
@@ -173,8 +138,8 @@ main {
 }
 
 .circulo-decorativo {
-    width: 240px;
-    height: 240px;
+    width: clamp(140px, 22vw, 240px);
+    height: clamp(140px, 22vw, 240px);
     border-radius: 50%;
     background-color: var(--vanilla-beige);
     border: 4px solid var(--coffee-brown);
@@ -196,23 +161,12 @@ main {
     color: var(--vanilla-beige);
     text-align: center;
     padding: 1rem;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
 }
 
 @media (max-width: 850px) {
-    .vista-inicio {
-        margin: 1rem auto;
-        padding: 0 0.75rem;
-    }
-
     .hero-contenedor {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
-        padding: 1.35rem;
-    }
-
-    .hero-texto h1 {
-        font-size: 1.65rem;
     }
 
     .pasos-grid {
@@ -221,10 +175,5 @@ main {
 
     .btn-principal {
         width: 100%;
-    }
-
-    .circulo-decorativo {
-        width: 150px;
-        height: 150px;
     }
 }

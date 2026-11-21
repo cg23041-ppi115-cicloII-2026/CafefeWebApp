@@ -1,5 +1,6 @@
 :host {
     display: block;
+    width: 100%;
     font-family: var(--fuente-principal);
     background-color: var(--bg-app);
     color: var(--texto-principal);
@@ -11,18 +12,22 @@
 }
 
 .zona-errores {
+    width: 100%;
     max-width: 1280px;
     margin: 1rem auto 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 clamp(0.85rem, 2.5vw, 1.5rem);
+    box-sizing: border-box;
 }
 
 .subnav-tpv {
+    width: 100%;
     max-width: 1280px;
     margin: 1.25rem auto;
-    padding: 0 1.5rem;
+    padding: 0 clamp(0.85rem, 2.5vw, 1.5rem);
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    box-sizing: border-box;
 }
 
 .btn-subnav {
@@ -49,13 +54,15 @@
 }
 
 .layout-tpv {
+    width: 100%;
     max-width: 1280px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: clamp(0.85rem, 2.5vw, 1.5rem);
     display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 1.5rem;
+    grid-template-columns: minmax(270px, 340px) minmax(0, 1fr);
+    gap: clamp(1rem, 2vw, 1.5rem);
     align-items: start;
+    box-sizing: border-box;
 }
 
 .columna-ordenes,
@@ -66,7 +73,7 @@
 .columna-ordenes {
     background-color: var(--bg-tarjeta);
     border-radius: var(--radio-panel);
-    padding: 1.25rem;
+    padding: clamp(1rem, 2vw, 1.25rem);
     border: 1px solid var(--borde-suave);
     box-shadow: var(--sombra-suave);
 }
@@ -79,6 +86,7 @@
     margin-bottom: 1rem;
     border-bottom: 2px solid var(--bg-app);
     padding-bottom: 0.65rem;
+    flex-wrap: wrap;
 }
 
 .cabecera-columna h2 {
@@ -109,6 +117,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    min-width: 0;
 }
 
 .tarjeta-cobro {
@@ -116,6 +125,7 @@
     border-radius: var(--radio-tarjeta);
     padding: 0.85rem;
     background-color: var(--bg-contenedor);
+    min-width: 0;
     transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -133,6 +143,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     font-weight: 800;
     color: var(--texto-principal);
     font-size: 1.05rem;
@@ -175,36 +186,20 @@
 /* ==================== TABLET (<= 960px) ==================== */
 @media (max-width: 960px) {
     .layout-tpv {
-        grid-template-columns: 1fr;
-        padding: 1rem;
-        gap: 1.25rem;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .lista-ordenes {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
         gap: 0.75rem;
     }
 }
 
 /* ==================== CELULAR (<= 600px) ==================== */
 @media (max-width: 600px) {
-    .zona-errores,
-    .subnav-tpv {
-        padding: 0 0.85rem;
-    }
-
-    .layout-tpv {
-        padding: 0.85rem;
-        gap: 1rem;
-    }
-
-    .columna-ordenes {
-        padding: 1rem;
-    }
-
     .lista-ordenes {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .subnav-tpv .btn-subnav {

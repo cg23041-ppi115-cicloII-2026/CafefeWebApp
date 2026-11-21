@@ -1,9 +1,7 @@
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
+    padding: clamp(0.65rem, 2.5vw, 1.25rem);
     background-color: rgba(40, 25, 15, 0.65);
     display: flex;
     justify-content: center;
@@ -11,7 +9,14 @@
     z-index: 1000;
     backdrop-filter: blur(2px);
     animation: fadeIn 0.2s ease;
-    font-family: var(--fuente-principal, system-ui, -apple-system, sans-serif);
+    box-sizing: border-box;
+    font-family: var(--fuente-principal);
+}
+
+.modal-overlay *,
+.modal-overlay *::before,
+.modal-overlay *::after {
+    box-sizing: border-box;
 }
 
 @keyframes fadeIn {
@@ -20,12 +25,13 @@
 }
 
 .modal-historial {
-    background: #ffffff;
-    border-radius: 14px;
-    padding: 1.5rem;
-    width: 90%;
+    background: var(--bg-tarjeta);
+    border-radius: var(--radio-panel);
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    width: 100%;
     max-width: 800px;
-    max-height: 85vh;
+    max-height: 88dvh;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.3);
@@ -35,82 +41,128 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #e5ded4;
+    gap: 0.75rem;
+    border-bottom: 2px solid var(--borde-suave);
     padding-bottom: 0.75rem;
     margin-bottom: 1rem;
 }
 
 .modal-historial-header h3 {
     margin: 0;
-    color: var(--coffee-brown, #4B3621);
+    font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+    color: var(--coffee-brown);
+    word-break: break-word;
 }
 
 .btn-cerrar-historial {
     background: transparent;
     border: none;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
     font-size: 1.4rem;
+    line-height: 1;
     cursor: pointer;
-    color: #8c735d;
+    color: var(--texto-secundario);
     font-weight: 800;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-cerrar-historial:hover {
+    background-color: var(--bg-contenedor);
+    color: var(--coffee-brown);
 }
 
 .lista-historial {
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding-right: 0.5rem;
+    padding-right: 0.25rem;
+    min-width: 0;
 }
 
 .item-historial {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.85rem 1.1rem;
-    border-radius: 8px;
-    background-color: #faf6f0;
-    border: 1px solid #e8decb;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radio-tarjeta);
+    background-color: var(--bg-contenedor);
+    border: 1px solid var(--borde-suave);
+    min-width: 0;
 }
 
 .item-historial.entregado {
-    border-left: 5px solid #28a745;
+    border-left: 5px solid var(--estado-exito);
 }
 
 .item-historial.cancelado {
     border-left: 5px solid #dc3545;
 }
 
+.item-historial-info {
+    flex: 1;
+    min-width: 0;
+}
+
 .item-historial-info h4 {
     margin: 0 0 0.25rem 0;
-    color: var(--coffee-brown, #4B3621);
+    color: var(--coffee-brown);
     font-size: 0.95rem;
+    word-break: break-word;
 }
 
 .item-historial-info p {
     margin: 0;
-    font-size: 0.8rem;
-    color: #6e5740;
+    font-size: 0.82rem;
+    color: var(--texto-secundario);
+    word-break: break-word;
 }
 
 .btn-reabrir {
     background-color: transparent;
-    border: 1.5px solid var(--coffee-brown, #4B3621);
-    color: var(--coffee-brown, #4B3621);
-    padding: 6px 12px;
+    border: 1.5px solid var(--coffee-brown);
+    color: var(--coffee-brown);
+    padding: 7px 12px;
+    min-height: 36px;
     border-radius: 6px;
+    font-family: inherit;
     font-weight: 700;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    flex-shrink: 0;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .btn-reabrir:hover {
-    background-color: var(--coffee-brown, #4B3621);
-    color: #ffffff;
+    background-color: var(--coffee-brown);
+    color: var(--blanco-puro);
 }
 
 .sin-historial {
     text-align: center;
-    color: #6e5740;
-    padding: 2rem 0;
+    color: var(--texto-secundario);
+    padding: 2rem 1rem;
+}
+
+/* ==================== CELULAR (<= 600px) ==================== */
+@media (max-width: 600px) {
+    .item-historial {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-reabrir {
+        width: 100%;
+        min-height: 42px;
+        text-align: center;
+    }
 }

@@ -1,8 +1,15 @@
 :host {
-   display: block;
+    display: block;
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    box-sizing: border-box;
+    font-family: var(--fuente-principal);
+}
+
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -31,7 +38,7 @@
     font-size: 0.8rem;
     font-weight: 700;
     text-align: center;
-    white-space: nowrap;
+    max-width: 100%;
 }
 
 .estado-tag.pendiente {
@@ -41,27 +48,28 @@
 }
 
 .estado-tag.lista {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: var(--estado-listo-bg);
+    color: var(--estado-listo-txt);
     border: 1px solid #c3e6cb;
 }
 
 .pie-botones {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     width: 100%;
 }
 
 .btn-accion {
     width: 100%;
+    min-height: 36px;
     padding: 7px 10px;
     border: none;
     border-radius: 6px;
+    font-family: inherit;
     font-weight: 700;
     cursor: pointer;
     font-size: 0.82rem;
-    white-space: nowrap;
     transition: all 0.15s ease;
     text-align: center;
     letter-spacing: 0.2px;
@@ -69,30 +77,30 @@
 
 .btn-accion:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
 }
 
 .btn-preparar {
-    background-color: var(--coffee-brown, #4B3621);
-    color: #ffffff;
+    background-color: var(--coffee-brown);
+    color: var(--blanco-puro);
 }
 
 .btn-entregar {
-    background-color: #28a745;
-    color: #ffffff;
+    background-color: var(--estado-exito);
+    color: var(--blanco-puro);
 }
 
 .btn-cancelar {
     background-color: transparent;
     border: 1.5px solid #dc3545;
     color: #dc3545;
-    padding: 5px 10px;
+    padding: 6px 10px;
     font-size: 0.78rem;
 }
 
 .btn-cancelar:hover {
     background-color: #dc3545;
-    color: #ffffff;
+    color: var(--blanco-puro);
 }
 
 .tiempo-badge {
@@ -107,21 +115,32 @@
 
 .tiempo-verde {
     background-color: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
+    color: var(--blanco-puro);
 }
 
 .tiempo-amarillo {
     background-color: #ffc107;
-    color: #4B3621;
+    color: var(--coffee-brown);
 }
 
 .tiempo-rojo {
     background-color: #dc3545;
-    color: #ffffff;
+    color: var(--blanco-puro);
     animation: pulsoAlerta 1.5s infinite;
 }
 
 @keyframes pulsoAlerta {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.75; }
+}
+
+/* ==================== CELULAR (<= 600px) ==================== */
+@media (max-width: 600px) {
+    .cliente-nombre {
+        white-space: normal;
+    }
+
+    .btn-accion {
+        min-height: 42px;
+    }
 }

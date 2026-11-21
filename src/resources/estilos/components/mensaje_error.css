@@ -1,30 +1,42 @@
 :host {
     display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     margin: 0.75rem 0;
-    font-family: var(--fuente-principal, system-ui, sans-serif);
+    font-family: var(--fuente-principal);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
 }
 
 .alerta-error {
-    background-color: var(--estado-error-bg, #fdecea);
+    background-color: var(--estado-error-bg);
     border: 1px solid #f5c2c7;
-    border-left: 6px solid var(--apple-red, #C8322B);
-    color: var(--apple-red, #C8322B);
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
+    border-left: 6px solid var(--color-acento);
+    color: var(--estado-error-txt);
+    border-radius: var(--radio-tarjeta);
+    padding: 0.9rem 1.15rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.85rem;
     box-shadow: 0 2px 6px rgba(200, 50, 43, 0.12);
 }
 
 .contenido {
-    flex: 1;
+    flex: 1 1 220px;
+    min-width: 0;
 }
 
 .cabecera {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 4px;
 }
@@ -36,8 +48,8 @@
 }
 
 .badge-codigo {
-    background: var(--apple-red, #C8322B);
-    color: #fff;
+    background: var(--color-acento);
+    color: var(--texto-claro);
     font-size: 0.75rem;
     font-weight: bold;
     padding: 2px 7px;
@@ -48,29 +60,44 @@
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.4;
+    word-break: break-word;
 }
 
 .acciones {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 button {
     border: none;
     border-radius: 6px;
-    padding: 7px 12px;
+    padding: 8px 14px;
+    min-height: 36px;
+    font-family: inherit;
     font-weight: 600;
     cursor: pointer;
     font-size: 0.85rem;
 }
 
 .btn-reintentar {
-    background-color: var(--apple-red, #C8322B);
-    color: #fff;
+    background-color: var(--color-acento);
+    color: var(--texto-claro);
 }
 
 .btn-cerrar {
     background-color: transparent;
-    color: var(--apple-red, #C8322B);
+    color: var(--estado-error-txt);
     border: 1px solid #f1aeb5;
+}
+
+/* ==================== CELULAR (<= 600px) ==================== */
+@media (max-width: 600px) {
+    .acciones {
+        width: 100%;
+    }
+
+    .acciones button {
+        flex: 1 1 auto;
+    }
 }

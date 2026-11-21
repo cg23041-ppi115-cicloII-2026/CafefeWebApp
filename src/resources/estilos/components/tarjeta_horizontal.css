@@ -5,25 +5,25 @@
     justify-content: space-between;
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
-    background-color: var(--bg-tarjeta, #FFFFFF);
-    border: 1px solid var(--borde-suave, #d8c6a8);
-    border-radius: var(--radio-tarjeta, 10px);
-    box-shadow: var(--sombra-suave, 0 2px 6px rgba(75, 54, 33, 0.1));
+    background-color: var(--bg-tarjeta);
+    border: 1px solid var(--borde-suave);
+    border-radius: var(--radio-tarjeta);
+    box-shadow: var(--sombra-suave);
     overflow: hidden;
-    font-family: var(--fuente-principal, system-ui, sans-serif);
+    font-family: var(--fuente-principal);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 :host(:hover) {
     transform: translateY(-2px);
-    box-shadow: var(--sombra-elevada, 0 4px 12px rgba(75, 54, 33, 0.16));
+    box-shadow: var(--sombra-elevada);
 }
 
-/* Izquierda: ~35% del ancho disponible (no ocupa la mitad ni aprieta el centro) */
 .header {
-    background-color: var(--coffee-brown, #4B3621);
-    color: var(--blanco-puro, #FFFFFF);
+    background-color: var(--coffee-brown);
+    color: var(--blanco-puro);
     padding: 0.75rem 1rem;
     flex: 1.1 1 0;
     min-width: 0;
@@ -38,10 +38,9 @@
     min-width: 0;
 }
 
-/* Centro: Estado del pedido con espacio suficiente para "En espera" y "Listo para recoger" */
 .body {
-    padding: 0.6rem 0.75rem;
-    color: var(--coffee-brown, #4B3621);
+    padding: 0.65rem 0.75rem;
+    color: var(--coffee-brown);
     flex: 1 1 0;
     min-width: 0;
     display: flex;
@@ -53,11 +52,10 @@
     margin: 0;
 }
 
-/* Derecha: Botones de acción ajustados a su contenido */
 .footer {
-    background-color: var(--blanco-puro, #FFFFFF);
-    border-left: 1px solid var(--borde-suave, #d8c6a8);
-    padding: 0.6rem 0.85rem;
+    background-color: var(--blanco-puro);
+    border-left: 1px solid var(--borde-suave);
+    padding: 0.65rem 0.85rem;
     flex: 1 1 0;
     min-width: 0;
     align-self: stretch;
@@ -66,15 +64,15 @@
     justify-content: center;
 }
 
-@media (max-width: 700px) {
+/* ==================== TABLET Y CELULAR (<= 960px) ==================== */
+@media (max-width: 960px) {
     :host {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .header,
     .footer {
-        min-width: unset;
         border-left: none;
+        border-top: 1px solid var(--borde-suave);
     }
 }

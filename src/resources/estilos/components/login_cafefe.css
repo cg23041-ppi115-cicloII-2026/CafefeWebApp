@@ -1,12 +1,16 @@
 :host {
     display: block;
     width: 100%;
+    min-width: 0;
     min-height: calc(100vh - 110px);
-    font-family: var(--fuente-principal, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
-    color: var(--texto-principal, #4B3621);
+    box-sizing: border-box;
+    font-family: var(--fuente-principal);
+    color: var(--texto-principal);
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -16,7 +20,7 @@
 
 .login-wrapper {
     display: grid;
-    grid-template-columns: 46% 54%;
+    grid-template-columns: minmax(0, 46%) minmax(0, 54%);
     min-height: calc(100vh - 110px);
     width: 100%;
 }
@@ -25,14 +29,15 @@
 .login-brand-panel {
     position: relative;
     overflow: hidden;
-    background: linear-gradient(155deg, #5a4128 0%, var(--coffee-brown, #4B3621) 55%, #342415 100%);
-    color: var(--vanilla-beige, #EDE0C8);
+    background: linear-gradient(155deg, #5a4128 0%, var(--coffee-brown) 55%, #342415 100%);
+    color: var(--vanilla-beige);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 3rem 2.25rem;
+    padding: clamp(1.75rem, 3.5vw, 3rem) clamp(1.25rem, 3vw, 2.25rem);
     text-align: center;
+    min-width: 0;
 }
 
 .watermark-logo {
@@ -40,8 +45,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(-8deg);
-    width: 125%;
-    max-width: 620px;
+    width: 100%;
+    max-width: 560px;
     height: auto;
     object-fit: contain;
     opacity: 0.11;
@@ -53,6 +58,7 @@
 .brand-content {
     position: relative;
     z-index: 1;
+    width: 100%;
     max-width: 380px;
     display: flex;
     flex-direction: column;
@@ -60,23 +66,23 @@
 }
 
 .brand-logo-main {
-    width: 96px;
-    height: 96px;
+    width: clamp(72px, 8vw, 96px);
+    height: clamp(72px, 8vw, 96px);
     border-radius: 50%;
-    background-color: var(--vanilla-beige, #EDE0C8);
+    background-color: var(--vanilla-beige);
     border: 3px solid rgba(255, 255, 255, 0.25);
     padding: 12px;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
     object-fit: contain;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
 }
 
 .brand-title {
     margin: 0;
-    font-size: 2.75rem;
+    font-size: clamp(2rem, 3.5vw, 2.75rem);
     font-weight: 900;
     letter-spacing: 0.12em;
-    color: var(--blanco-puro, #FFFFFF);
+    color: var(--blanco-puro);
 }
 
 .brand-subtitle {
@@ -84,36 +90,36 @@
     font-size: 1.05rem;
     font-weight: 600;
     line-height: 1.45;
-    color: var(--vanilla-beige, #EDE0C8);
+    color: var(--vanilla-beige);
 }
 
 .lema {
     margin: 0.75rem 0 0 0;
-    font-size: 1.25rem;
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
     font-weight: 600;
     font-style: italic;
     line-height: 1.45;
-    color: var(--vanilla-beige, #EDE0C8);
-
+    color: var(--vanilla-beige);
 }
 
 /* Panel derecho de formulario */
 .login-form-panel {
-    background-color: var(--bg-contenedor, #f6efe2);
+    background-color: var(--bg-contenedor);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2.5rem 2rem;
+    padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 2.5vw, 2rem);
+    min-width: 0;
 }
 
 .login-card {
     width: 100%;
     max-width: 430px;
-    background-color: var(--bg-tarjeta, #FFFFFF);
-    border: 1.5px solid var(--borde-suave, #d8c6a8);
+    background-color: var(--bg-tarjeta);
+    border: 1.5px solid var(--borde-suave);
     border-radius: 18px;
-    padding: 2.25rem 2rem;
-    box-shadow: var(--sombra-elevada, 0 4px 12px rgba(75, 54, 33, 0.16));
+    padding: clamp(1.5rem, 3vw, 2.25rem) clamp(1.25rem, 2.5vw, 2rem);
+    box-shadow: var(--sombra-elevada);
 }
 
 .login-header {
@@ -122,25 +128,25 @@
 
 .login-header h2 {
     margin: 0 0 0.4rem 0;
-    font-size: 1.75rem;
+    font-size: clamp(1.45rem, 2.5vw, 1.75rem);
     font-weight: 800;
-    color: var(--texto-principal, #4B3621);
+    color: var(--texto-principal);
 }
 
 .login-header p {
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.45;
-    color: var(--texto-secundario, #6e5740);
+    color: var(--texto-secundario);
 }
 
 .alerta-login {
     margin-bottom: 1rem;
     padding: 0.75rem 0.95rem;
     border-radius: 10px;
-    background-color: var(--estado-error-bg, #fdecea);
-    color: var(--estado-error-txt, #C8322B);
-    border: 1px solid var(--estado-error-borde, #C8322B);
+    background-color: var(--estado-error-bg);
+    color: var(--estado-error-txt);
+    border: 1px solid var(--estado-error-borde);
     font-size: 0.88rem;
     font-weight: 600;
 }
@@ -160,17 +166,18 @@ form {
 .campo-grupo label {
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--texto-principal, #4B3621);
+    color: var(--texto-principal);
 }
 
 .campo-grupo input[type="text"],
 .campo-grupo input[type="password"] {
     width: 100%;
-    padding: 0.8rem 0.95rem;
-    border: 1.5px solid var(--borde-suave, #d8c6a8);
+    min-height: 44px;
+    padding: 0.75rem 0.95rem;
+    border: 1.5px solid var(--borde-suave);
     border-radius: 10px;
-    background-color: var(--blanco-puro, #FFFFFF);
-    color: var(--texto-principal, #4B3621);
+    background-color: var(--blanco-puro);
+    color: var(--texto-principal);
     font-size: 0.98rem;
     font-family: inherit;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -178,7 +185,7 @@ form {
 
 .campo-grupo input:focus {
     outline: none;
-    border-color: var(--coffee-brown, #4B3621);
+    border-color: var(--coffee-brown);
     box-shadow: 0 0 0 3px rgba(75, 54, 33, 0.14);
 }
 
@@ -189,23 +196,24 @@ form {
 }
 
 .input-password-box input {
-    padding-right: 3.2rem;
+    padding-right: 3.4rem;
 }
 
 .btn-toggle-eye {
     position: absolute;
-    right: 0.55rem;
-    padding: 0.35rem 0.55rem;
-    border: 1px solid var(--borde-suave, #d8c6a8);
+    right: 0.45rem;
+    min-height: 34px;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--borde-suave);
     border-radius: 7px;
-    background-color: var(--vanilla-beige-suave, #f6efe2);
-    color: var(--texto-principal, #4B3621);
+    background-color: var(--vanilla-beige-suave);
+    color: var(--texto-principal);
     font-size: 0.9rem;
     cursor: pointer;
 }
 
 .btn-toggle-eye:hover {
-    background-color: var(--vanilla-beige, #EDE0C8);
+    background-color: var(--vanilla-beige);
 }
 
 .opciones-fila {
@@ -218,26 +226,27 @@ form {
     align-items: center;
     gap: 0.55rem;
     font-size: 0.9rem;
-    color: var(--texto-secundario, #6e5740);
+    color: var(--texto-secundario);
     cursor: pointer;
     user-select: none;
 }
 
 .check-recordar input[type="checkbox"] {
-    width: 17px;
-    height: 17px;
-    accent-color: var(--coffee-brown, #4B3621);
+    width: 18px;
+    height: 18px;
+    accent-color: var(--coffee-brown);
     cursor: pointer;
 }
 
 .btn-login-submit {
     margin-top: 0.35rem;
     width: 100%;
-    padding: 0.95rem 1.5rem;
+    min-height: 46px;
+    padding: 0.9rem 1.5rem;
     border: none;
     border-radius: 999px;
-    background-color: var(--color-acento, #C8322B);
-    color: var(--blanco-puro, #FFFFFF);
+    background-color: var(--color-acento);
+    color: var(--blanco-puro);
     font-size: 1.02rem;
     font-weight: 800;
     cursor: pointer;
@@ -246,7 +255,7 @@ form {
 }
 
 .btn-login-submit:hover:not(:disabled) {
-    background-color: var(--color-acento-hover, #a82822);
+    background-color: var(--color-acento-hover);
     transform: translateY(-1px);
 }
 
@@ -260,7 +269,7 @@ form {
     align-items: center;
     text-align: center;
     margin: 1.35rem 0 1rem;
-    color: var(--texto-secundario, #6e5740);
+    color: var(--texto-secundario);
     font-size: 0.85rem;
 }
 
@@ -268,7 +277,7 @@ form {
 .divisor-acceso::after {
     content: "";
     flex: 1;
-    border-bottom: 1px solid var(--borde-suave, #d8c6a8);
+    border-bottom: 1px solid var(--borde-suave);
 }
 
 .divisor-acceso span {
@@ -277,11 +286,12 @@ form {
 
 .btn-cliente-directo {
     width: 100%;
+    min-height: 44px;
     padding: 0.85rem 1.5rem;
-    border: 2px solid var(--coffee-brown, #4B3621);
+    border: 2px solid var(--coffee-brown);
     border-radius: 999px;
-    background-color: var(--vanilla-beige, #EDE0C8);
-    color: var(--coffee-brown, #4B3621);
+    background-color: var(--vanilla-beige);
+    color: var(--coffee-brown);
     font-size: 0.96rem;
     font-weight: 800;
     cursor: pointer;
@@ -293,30 +303,18 @@ form {
     transform: translateY(-1px);
 }
 
-@media (max-width: 850px) {
+/* ==================== TABLET (<= 960px) ==================== */
+@media (max-width: 960px) {
     .login-wrapper {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
-    .login-brand-panel {
-        padding: 2rem 1.5rem;
-    }
+
     .watermark-logo {
         width: 85%;
         max-width: 340px;
     }
-    .brand-logo-main {
-        width: 72px;
-        height: 72px;
-        margin-bottom: 0.75rem;
-    }
-    .brand-title {
-        font-size: 2rem;
-    }
+
     .login-form-panel {
-        padding: 1.75rem 1.25rem 2.5rem;
         align-items: flex-start;
-    }
-    .login-card {
-        padding: 1.75rem 1.35rem;
     }
 }

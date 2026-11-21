@@ -136,7 +136,7 @@ class PagoModel extends HTMLElement {
         return "PENDIENTE";
     }
 
-  _construirObservacionPagada(obsActual, nombreCajero = "Caja Principal") {
+    _construirObservacionPagada(obsActual, nombreCajero = "Caja Principal") {
         const partes = this._obtenerPartesObservacion(obsActual).filter(p => {
             const up = p.toUpperCase();
             return up !== "PAGADO" && up !== "PAGADA" && !up.startsWith("CAJERO:");
@@ -186,31 +186,29 @@ class PagoModel extends HTMLElement {
     }
 
     async _obtenerOrdenesYaFacturadas() {
-        try {
-            const res = await this._facturaDAO.findRange(0, 50);
-            const facturas = Array.isArray(res.datos) ? res.datos : [];
-            const codigosPagados = new Set();
+        return this._facturaDAO.findRange(0, 50)
+            .then(res => {
+                const facturas = Array.isArray(res.datos) ? res.datos : [];
+                const codigosPagados = new Set();
 
-            facturas.forEach(f => {
-                if (String(f.estado || "").toUpperCase() === "PAGADA") {
-                    const match = String(f.observaciones || "").match(/Orden\s*#([A-Z0-9]+)/i);
-                    if (match) codigosPagados.add(match[1].toUpperCase());
-                }
-            });
+                facturas.forEach(f => {
+                    if (String(f.estado || "").toUpperCase() === "PAGADA") {
+                        const match = String(f.observaciones || "").match(/Orden\s*#([A-Z0-9]+)/i);
+                        if (match) codigosPagados.add(match[1].toUpperCase());
+                    }
+                });
 
-            return codigosPagados;
-        } catch {
-            return new Set();
-        }
+                return codigosPagados;
+            })
+            .catch(() => new Set());
     }
 
     async _cargarOrdenesPorCobrar() {
-        try {
-            const [res, codigosPagados] = await Promise.all([
-                this._ordenDAO.findRange(0, 50),
-                this._obtenerOrdenesYaFacturadas()
-            ]);
-
+        return Promise.all([
+            this._ordenDAO.findRange(0, 50),
+            this._obtenerOrdenesYaFacturadas()
+        ])
+        .then(([res, codigosPagados]) => {
             this._limpiarError();
             const crudos = Array.isArray(res.datos) ? res.datos : [];
 
@@ -224,88 +222,92 @@ class PagoModel extends HTMLElement {
                 (a, b) => new Date(a.fechaCreacion || 0) - new Date(b.fechaCreacion || 0)
             );
 
-            const evaluadas = await Promise.all(datos.map(async orden => {
-                try {
-                    const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
-                    if (codigosPagados.has(uidCorto)) return null;
+            return Promise.all(datos.map(orden => {
+                const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
+                if (codigosPagados.has(uidCorto)) return Promise.resolve(null);
 
-                    const pDAO = new OrdenProductoDAO(orden.idOrden);
-                    const rProd = await pDAO.findRange(0, 50);
-                    const itemsCrudos = Array.isArray(rProd.datos) ? rProd.datos : [];
-                    if (itemsCrudos.length === 0) return null;
+                const pDAO = new OrdenProductoDAO(orden.idOrden);
+                return pDAO.findRange(0, 50)
+                    .then(rProd => {
+                        const itemsCrudos = Array.isArray(rProd.datos) ? rProd.datos : [];
+                        if (itemsCrudos.length === 0) return null;
 
-                    const estado = this._extraerEstadoOficial(itemsCrudos);
-                    if (estado === "PAGADA" || estado === "CANCELADO") {
-                        return null;
-                    }
+                        const estado = this._extraerEstadoOficial(itemsCrudos);
+                        if (estado === "PAGADA" || estado === "CANCELADO") {
+                            return null;
+                        }
 
-                    const productos = this._normalizarProductos(itemsCrudos);
-                    const total = productos.reduce((acc, p) => acc + Number(p.precio || 0), 0);
-                    const cliente = this._extraerCliente(orden, itemsCrudos);
-                    return {
-                        orden: { ...orden, clienteNombre: cliente },
-                        productos,
-                        total,
-                        cliente
-                    };
-                } catch {
-                    return null;
-                }
+                        const productos = this._normalizarProductos(itemsCrudos);
+                        const total = productos.reduce((acc, p) => acc + Number(p.precio || 0), 0);
+                        const cliente = this._extraerCliente(orden, itemsCrudos);
+                        return {
+                            orden: { ...orden, clienteNombre: cliente },
+                            productos,
+                            total,
+                            cliente
+                        };
+                    })
+                    .catch(() => null);
             }));
-
+        })
+        .then(evaluadas => {
             this._ordenesPorCobrar = evaluadas.filter(Boolean);
             if (this._subvista === "cobro") {
                 this._renderizar();
             }
-        } catch (err) {
+        })
+        .catch(err => {
             this._mostrarError(
                 "Error al cargar las órdenes pendientes de pago",
                 err,
                 () => this._cargarOrdenesPorCobrar()
             );
-        }
+        });
     }
 
     async _cargarHistorialFacturas() {
         const vistaHistorial = this._root.querySelector("#vistaHistorial");
         if (!vistaHistorial) return;
 
-        try {
-            this._limpiarError();
-            const facturas = await this._historialModel.obtenerFacturasOrdenadas();
-            vistaHistorial.facturas = facturas;
-        } catch (err) {
-            vistaHistorial.facturas = [];
-            this._mostrarError(
-                "Error al cargar el historial de facturas",
-                err,
-                () => this._cargarHistorialFacturas()
-            );
-        }
+        this._limpiarError();
+        return this._historialModel.obtenerFacturasOrdenadas()
+            .then(facturas => {
+                vistaHistorial.facturas = facturas;
+            })
+            .catch(err => {
+                vistaHistorial.facturas = [];
+                this._mostrarError(
+                    "Error al cargar el historial de facturas",
+                    err,
+                    () => this._cargarHistorialFacturas()
+                );
+            });
     }
 
     async _reimprimirFacturaHistorica(factura) {
         const vistaHistorial = this._root.querySelector("#vistaHistorial");
         if (vistaHistorial) vistaHistorial.cargandoId = factura.idFactura;
 
-        try {
-            this._limpiarError();
-            const detalleTicket = await this._historialModel.construirDetalleTicket(factura);
-            const modalTicket = this._root.querySelector("modal-ticket-pdf");
-            if (modalTicket) {
-                modalTicket.abrir({
-                    ...detalleTicket,
-                    cajero: detalleTicket.cajero || this._extraerCajero(factura)
-                });
-            }
-        } catch (err) {
-            this._mostrarError("No se pudo reconstruir el comprobante de la factura", err);
-        } finally {
-            if (vistaHistorial) vistaHistorial.cargandoId = null;
-        }
+        this._limpiarError();
+        return this._historialModel.construirDetalleTicket(factura)
+            .then(detalleTicket => {
+                const modalTicket = this._root.querySelector("modal-ticket-pdf");
+                if (modalTicket) {
+                    modalTicket.abrir({
+                        ...detalleTicket,
+                        cajero: detalleTicket.cajero || this._extraerCajero(factura)
+                    });
+                }
+            })
+            .catch(err => {
+                this._mostrarError("No se pudo reconstruir el comprobante de la factura", err);
+            })
+            .finally(() => {
+                if (vistaHistorial) vistaHistorial.cargandoId = null;
+            });
     }
 
-   async _procesarTransaccion(detallePago) {
+    async _procesarTransaccion(detallePago) {
         const { orden, productos, abonos, totalPedido, totalPagado, vuelto } = detallePago;
         const panel = this._root.querySelector("#visorCobro");
 
@@ -334,22 +336,26 @@ class PagoModel extends HTMLElement {
         if (panel) panel.procesando = true;
         this._limpiarError();
 
-        try {
-            // 1. Crear Factura (POST /factura)
-            const resFactura = await this._facturaDAO.create({
-                idCaja: { idCaja: this._cajaActiva.idCaja },
-                idEmpleadoRol: { idEmpleadoRol },
-                cliente: clienteFactura,
-                fechaFacturacion: new Date().toISOString(),
-                estado: "PAGADA",
-                observaciones: `Orden #${String(orden.idOrden).slice(-5).toUpperCase()} | Cliente: ${clienteFactura} | Cajero: ${nombreCajero}`
-            });
-            const idFactura = resFactura.datos?.id;
-            if (!idFactura) throw new Error("El servidor no devolvió el ID de la factura creada.");
+        let idFactura = null;
 
-            // 2. Vincular OrdenProductos a la Factura guardando precio, observaciones completas, PAGADA y Cajero
+        // 1. Crear Factura (POST /factura)
+        return this._facturaDAO.create({
+            idCaja: { idCaja: this._cajaActiva.idCaja },
+            idEmpleadoRol: { idEmpleadoRol },
+            cliente: clienteFactura,
+            fechaFacturacion: new Date().toISOString(),
+            estado: "PAGADA",
+            observaciones: `Orden #${String(orden.idOrden).slice(-5).toUpperCase()} | Cliente: ${clienteFactura} | Cajero: ${nombreCajero}`
+        })
+        .then(resFactura => {
+            idFactura = resFactura.datos?.id;
+            if (!idFactura) {
+                return Promise.reject(new Error("El servidor no devolvió el ID de la factura creada."));
+            }
+
+            // 2. Vincular OrdenProductos a la Factura en paralelo
             const fopDAO = new FacturaOrdenProductoDAO(idFactura);
-            await Promise.all(productos.map(prod => {
+            return Promise.all(productos.map(prod => {
                 const obsFinal = this._construirObservacionPagada(prod.observaciones, nombreCajero);
                 return fopDAO.create({
                     idOrdenProducto: { idOrdenProducto: prod.idOrdenProducto },
@@ -357,19 +363,24 @@ class PagoModel extends HTMLElement {
                     observaciones: obsFinal
                 });
             }));
-
+        })
+        .then(() => {
             // 3. Crear Pago maestro (POST /pago)
-            const resPago = await this._pagoDAO.create({
+            return this._pagoDAO.create({
                 idFactura: { idFactura },
                 estado: "COMPLETADO",
                 observaciones: `Total: $${totalPedido.toFixed(2)} | Vuelto: $${vuelto.toFixed(2)} | Cajero: ${nombreCajero}`
             });
+        })
+        .then(resPago => {
             const idPago = resPago.datos?.id;
-            if (!idPago) throw new Error("El servidor no devolvió el ID del pago registrado.");
+            if (!idPago) {
+                return Promise.reject(new Error("El servidor no devolvió el ID del pago registrado."));
+            }
 
-            // 4. Registrar cada pago fraccionado (POST /pago/{idPago}/detalle)
+            // 4. Registrar cada pago fraccionado en paralelo
             const pdDAO = new PagoDetalleDAO(idPago);
-            await Promise.all(abonos.map(ab =>
+            return Promise.all(abonos.map(ab =>
                 pdDAO.create({
                     monto: Number(ab.monto),
                     tipoPago: ab.tipoPago,
@@ -377,7 +388,8 @@ class PagoModel extends HTMLElement {
                     referenciaExterna: ab.referenciaExterna || `Cajero: ${nombreCajero}`
                 })
             ));
-
+        })
+        .then(() => {
             // 5. Mostrar Ticket PDF y actualizar cola
             const modalTicket = this._root.querySelector("modal-ticket-pdf");
             if (modalTicket) {
@@ -397,11 +409,12 @@ class PagoModel extends HTMLElement {
 
             this._ordenSeleccionada = null;
             if (panel) panel.pedidoActual = null;
-            await this._cargarOrdenesPorCobrar();
-        } catch (err) {
+            return this._cargarOrdenesPorCobrar();
+        })
+        .catch(err => {
             if (panel) panel.procesando = false;
             this._mostrarError("Error al registrar el pago en el sistema", err);
-        }
+        });
     }
 
     _dibujarLayout() {

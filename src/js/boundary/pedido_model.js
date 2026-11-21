@@ -38,17 +38,14 @@ function resolverImagenProducto(subcategoria = '', categoria = '') {
     const sub = normalizarNombreImagen(subcategoria);
     const cat = normalizarNombreImagen(categoria);
 
-    // 1. Postres, Panadería y Repostería (van primero para evitar falsos positivos)
     if (sub.includes('pastel') || sub.includes('tarta')) return './resources/img/productos/pastel.png';
     if (sub.includes('panaderia') || sub.includes('croissant')) return './resources/img/productos/cuerno.png';
     if (sub.includes('reposteria')) return './resources/img/productos/reposteria.png';
 
-    // 2. Bebidas (usando límite de palabra para "te" / "tes")
     if (sub.includes('caliente')) return './resources/img/productos/bebida_caliente.png';
     if (sub.includes('fria')) return './resources/img/productos/bebida_fria.png';
     if (/(^|_)tes?(_|$)/.test(sub) || sub.includes('especialidad')) return './resources/img/productos/te-verde.png';
 
-    // 3. Desayunos, Merch y Combos
     if (sub.includes('tostada') || sub.includes('salado') || sub.includes('desayuno')) {
         return './resources/img/productos/pan-de-molde.png';
     }
@@ -59,7 +56,6 @@ function resolverImagenProducto(subcategoria = '', categoria = '') {
         return './resources/img/categorias/temporada_y_combos.png';
     }
 
-    // 4. Respaldo por categoría principal
     if (cat.includes('bebida')) return './resources/img/productos/bebida_caliente.png';
     if (cat.includes('postre')) return './resources/img/productos/pastel.png';
     if (cat.includes('desayuno')) return './resources/img/productos/pan-de-molde.png';
@@ -100,7 +96,7 @@ class PedidoModel extends HTMLElement {
     async connectedCallback() {
         this._configurarSesionNavbar();
         this._dibujar();
-        await this._cargarDatosDesdeAPI();
+        return this._cargarDatosDesdeAPI();
     }
 
     _configurarSesionNavbar() {
@@ -162,17 +158,19 @@ class PedidoModel extends HTMLElement {
     async _cargarMapaDescuentosVigentes() {
         const mapaPorProducto = new Map();
         const ahora = new Date();
-        try {
-            const [respTipos, respDescuentos] = await Promise.all([
-                this.tipoDescuentoDAO.findRange(0, 50),
-                this.descuentoDAO.findRange(0, 50)
-            ]);
+
+        return Promise.all([
+            this.tipoDescuentoDAO.findRange(0, 50),
+            this.descuentoDAO.findRange(0, 50)
+        ])
+        .then(([respTipos, respDescuentos]) => {
             const tiposActivos = new Map();
             (respTipos.datos || []).forEach(td => {
                 if (td.activo !== false && td.idTipoDescuento) {
                     tiposActivos.set(td.idTipoDescuento, td);
                 }
             });
+
             const descuentosVigentes = (respDescuentos.datos || []).filter(desc => {
                 const idTipo = desc.idTipoDescuento?.idTipoDescuento
                     || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
@@ -181,57 +179,64 @@ class PedidoModel extends HTMLElement {
                 }
                 return this._estaVigente(desc.fechaDesde, desc.fechaHasta, ahora);
             });
-            await Promise.all(
-                descuentosVigentes.map(async (desc) => {
-                    try {
-                        const dpDAO = new DescuentoProductoDAO(desc.idDescuento);
-                        const respDP = await dpDAO.findRange(0, 50);
-                        const itemsDP = respDP.datos || [];
-                        const idTipo = desc.idTipoDescuento?.idTipoDescuento
-                            || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
-                        const tipoInfo = idTipo ? tiposActivos.get(idTipo) : null;
-                        const maxPermitido = Number(tipoInfo?.descuentoMaximo || 100);
-                        itemsDP.forEach(dp => {
-                            if (!this._estaVigente(dp.fechaDesde, dp.fechaHasta, ahora)) return;
-                            const idProd = dp.idProducto?.idProducto
-                                || (typeof dp.idProducto === 'string' ? dp.idProducto : null);
-                            if (!idProd) return;
-                            const valorCrudo = Number(dp.valor || 0);
-                            const porcentaje = Math.max(0, Math.min(valorCrudo, maxPermitido));
-                            if (porcentaje <= 0) return;
-                            const anterior = mapaPorProducto.get(idProd);
-                            if (!anterior || porcentaje > anterior.porcentaje) {
-                                mapaPorProducto.set(idProd, {
-                                    idDescuento: desc.idDescuento,
-                                    nombreDescuento: desc.nombre || 'Promoción',
-                                    tipoDescuento: tipoInfo?.nombre || '',
-                                    porcentaje,
-                                    observaciones: dp.observaciones || desc.observaciones || ''
-                                });
-                            }
+
+            return Promise.all(
+                descuentosVigentes.map(desc => {
+                    const dpDAO = new DescuentoProductoDAO(desc.idDescuento);
+                    return dpDAO.findRange(0, 50)
+                        .then(respDP => {
+                            const itemsDP = respDP.datos || [];
+                            const idTipo = desc.idTipoDescuento?.idTipoDescuento
+                                || (typeof desc.idTipoDescuento === 'string' ? desc.idTipoDescuento : null);
+                            const tipoInfo = idTipo ? tiposActivos.get(idTipo) : null;
+                            const maxPermitido = Number(tipoInfo?.descuentoMaximo || 100);
+
+                            itemsDP.forEach(dp => {
+                                if (!this._estaVigente(dp.fechaDesde, dp.fechaHasta, ahora)) return;
+                                const idProd = dp.idProducto?.idProducto
+                                    || (typeof dp.idProducto === 'string' ? dp.idProducto : null);
+                                if (!idProd) return;
+                                const valorCrudo = Number(dp.valor || 0);
+                                const porcentaje = Math.max(0, Math.min(valorCrudo, maxPermitido));
+                                if (porcentaje <= 0) return;
+
+                                const anterior = mapaPorProducto.get(idProd);
+                                if (!anterior || porcentaje > anterior.porcentaje) {
+                                    mapaPorProducto.set(idProd, {
+                                        idDescuento: desc.idDescuento,
+                                        nombreDescuento: desc.nombre || 'Promoción',
+                                        tipoDescuento: tipoInfo?.nombre || '',
+                                        porcentaje,
+                                        observaciones: dp.observaciones || desc.observaciones || ''
+                                    });
+                                }
+                            });
+                        })
+                        .catch(e => {
+                            console.warn(`No se pudieron cargar productos del descuento ${desc.nombre}:`, e);
                         });
-                    } catch (e) {
-                        console.warn(`No se pudieron cargar productos del descuento ${desc.nombre}:`, e);
-                    }
                 })
             );
-        } catch (err) {
+        })
+        .then(() => mapaPorProducto)
+        .catch(err => {
             console.warn('No se pudieron cargar descuentos desde Cafefe-api:', err);
-        }
-        return mapaPorProducto;
+            return mapaPorProducto;
+        });
     }
 
     async _cargarDatosDesdeAPI() {
         this.cargando = true;
         this._dibujar();
-        try {
-            const [respCategorias, respProductos, respCar, respTipoCar, mapaDescuentos] = await Promise.all([
-                this.tipoProductoDAO.findRange(0, 50),
-                this.productoDAO.findRange(0, 50),
-                this.caracteristicaDAO.findRange(0, 50),
-                this.tipoCaracteristicaDAO.findRange(0, 50),
-                this._cargarMapaDescuentosVigentes()
-            ]);
+
+        return Promise.all([
+            this.tipoProductoDAO.findRange(0, 50),
+            this.productoDAO.findRange(0, 50),
+            this.caracteristicaDAO.findRange(0, 50),
+            this.tipoCaracteristicaDAO.findRange(0, 50),
+            this._cargarMapaDescuentosVigentes()
+        ])
+        .then(([respCategorias, respProductos, respCar, respTipoCar, mapaDescuentos]) => {
             this._limpiarError();
 
             const categoriasRaw = (respCategorias.datos || []).filter(cat => cat.activo !== false);
@@ -239,7 +244,6 @@ class PedidoModel extends HTMLElement {
             this.caracteristicas = (respCar.datos || []).filter(c => c.activo !== false);
             this.tiposCaracteristica = (respTipoCar.datos || []).filter(tc => tc.activo !== false);
 
-            // Detectar si existe una categoría real de Descuentos en la BD (sin crear virtuales)
             const catDescuentosBD = categoriasRaw.find(
                 c => c.nombre.trim().toLowerCase().includes('descuento')
             );
@@ -259,7 +263,6 @@ class PedidoModel extends HTMLElement {
                 }
             });
 
-            // Solo usar las categorías reales que vienen de la base de datos
             this.categorias = categoriasRaw
                 .filter(cat => !mapaRedireccionBebidas.has(cat.idTipoProducto))
                 .map(cat => {
@@ -273,74 +276,87 @@ class PedidoModel extends HTMLElement {
                     };
                 });
 
-            const productosEnriquecidos = await Promise.all(
-                listaProductos.map(async (prod) => {
-                    let idTipoProducto = null;
-                    let nombreTipoProducto = 'General';
-                    let subcategoria = null;
-                    try {
-                        const ptpDAO = new ProductoTipoProductoDAO(prod.idProducto);
-                        const respRel = await ptpDAO.findRange(0, 50);
-                        const relaciones = respRel.datos || [];
-                        const relValida = relaciones.find(r => {
-                            const idC = r.idTipoProducto?.idTipoProducto
-                                || r.tipoProducto?.idTipoProducto
-                                || (typeof r.idTipoProducto === 'string' ? r.idTipoProducto : null);
-                            return Boolean(idC);
-                        });
-                        if (relValida) {
-                            let idCat =
-                                relValida.idTipoProducto?.idTipoProducto ||
-                                relValida.tipoProducto?.idTipoProducto ||
-                                (typeof relValida.idTipoProducto === 'string' ? relValida.idTipoProducto : null);
-                            subcategoria = relValida.observaciones || null;
-                            if (mapaRedireccionBebidas.has(idCat)) {
-                                const info = mapaRedireccionBebidas.get(idCat);
-                                idCat = info.idPrincipal;
-                                if (!subcategoria) {
-                                    subcategoria = info.subcategoria;
+            return Promise.all(
+                listaProductos.map(prod => {
+                    const ptpDAO = new ProductoTipoProductoDAO(prod.idProducto);
+                    return ptpDAO.findRange(0, 50)
+                        .then(respRel => {
+                            let idTipoProducto = null;
+                            let nombreTipoProducto = 'General';
+                            let subcategoria = null;
+
+                            const relaciones = respRel.datos || [];
+                            const relValida = relaciones.find(r => {
+                                const idC = r.idTipoProducto?.idTipoProducto
+                                    || r.tipoProducto?.idTipoProducto
+                                    || (typeof r.idTipoProducto === 'string' ? r.idTipoProducto : null);
+                                return Boolean(idC);
+                            });
+
+                            if (relValida) {
+                                let idCat =
+                                    relValida.idTipoProducto?.idTipoProducto ||
+                                    relValida.tipoProducto?.idTipoProducto ||
+                                    (typeof relValida.idTipoProducto === 'string' ? relValida.idTipoProducto : null);
+                                subcategoria = relValida.observaciones || null;
+                                if (mapaRedireccionBebidas.has(idCat)) {
+                                    const info = mapaRedireccionBebidas.get(idCat);
+                                    idCat = info.idPrincipal;
+                                    if (!subcategoria) {
+                                        subcategoria = info.subcategoria;
+                                    }
+                                }
+                                idTipoProducto = idCat;
+                                const catEncontrada = this.categorias.find(c => c.idTipoProducto === idTipoProducto);
+                                if (catEncontrada) {
+                                    nombreTipoProducto = catEncontrada.nombre;
                                 }
                             }
-                            idTipoProducto = idCat;
-                            const catEncontrada = this.categorias.find(c => c.idTipoProducto === idTipoProducto);
-                            if (catEncontrada) {
-                                nombreTipoProducto = catEncontrada.nombre;
-                            }
-                        }
-                    } catch (e) {
-                        console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
-                    }
-                    const infoDesc = mapaDescuentos.get(prod.idProducto) || null;
-                    const precioBase = Number(prod.precioSugerido || 0);
-                    const precioFinal = infoDesc
-                        ? Number((precioBase * (1 - infoDesc.porcentaje / 100)).toFixed(2))
-                        : precioBase;
-                    return {
-                        ...prod,
-                        idTipoProducto,
-                        nombreTipoProducto,
-                        subcategoria: subcategoria || 'Todos',
-                        imagen: prod.imagen || resolverImagenProducto(subcategoria, nombreTipoProducto),
-                        precioOriginal: precioBase,
-                        precioSugerido: precioFinal,
-                        tieneDescuento: Boolean(infoDesc),
-                        nombreDescuento: infoDesc?.nombreDescuento || null,
-                        porcentajeDescuento: infoDesc?.porcentaje || 0
-                    };
+
+                            return { idTipoProducto, nombreTipoProducto, subcategoria };
+                        })
+                        .catch(e => {
+                            console.warn(`Sin categoría asociada para producto ${prod.nombre}:`, e);
+                            return { idTipoProducto: null, nombreTipoProducto: 'General', subcategoria: null };
+                        })
+                        .then(({ idTipoProducto, nombreTipoProducto, subcategoria }) => {
+                            const infoDesc = mapaDescuentos.get(prod.idProducto) || null;
+                            const precioBase = Number(prod.precioSugerido || 0);
+                            const precioFinal = infoDesc
+                                ? Number((precioBase * (1 - infoDesc.porcentaje / 100)).toFixed(2))
+                                : precioBase;
+
+                            return {
+                                ...prod,
+                                idTipoProducto,
+                                nombreTipoProducto,
+                                subcategoria: subcategoria || 'Todos',
+                                imagen: prod.imagen || resolverImagenProducto(subcategoria, nombreTipoProducto),
+                                precioOriginal: precioBase,
+                                precioSugerido: precioFinal,
+                                tieneDescuento: Boolean(infoDesc),
+                                nombreDescuento: infoDesc?.nombreDescuento || null,
+                                porcentajeDescuento: infoDesc?.porcentaje || 0
+                            };
+                        });
                 })
             );
+        })
+        .then(productosEnriquecidos => {
             this.productos = productosEnriquecidos;
-        } catch (err) {
+        })
+        .catch(err => {
             console.error('Error al cargar menú desde Cafefe-api:', err);
             this._mostrarError(
                 'No se pudo cargar el menú',
                 err,
                 () => this._cargarDatosDesdeAPI()
             );
-        } finally {
+        })
+        .finally(() => {
             this.cargando = false;
             this._dibujar();
-        }
+        });
     }
 
     async _abrirDetalleProducto(producto) {
@@ -349,58 +365,63 @@ class PedidoModel extends HTMLElement {
         this.gruposCaracteristicasProducto = [];
         this.pasoActual = 3;
         this._dibujar();
-        try {
-            const pcDAO = new ProductoCaracteristicaDAO(producto.idProducto);
-            const resp = await pcDAO.findRange(0, 50);
-            const asignadas = resp.datos || [];
-            const mapaGrupos = new Map();
-            asignadas.forEach(item => {
-                const idCar =
-                    (typeof item.idCaracteristica === 'string' ? item.idCaracteristica : null) ||
-                    item.idCaracteristica?.idCaracteristica ||
-                    item.caracteristica?.idCaracteristica ||
-                    item.id ||
-                    null;
-                const carInfo = this.caracteristicas.find(c => c.idCaracteristica === idCar)
-                    || (typeof item.idCaracteristica === 'object' ? item.idCaracteristica : null)
-                    || item.caracteristica
-                    || item
-                    || {};
-                const idTipoCar =
-                    (typeof carInfo.idTipoCaracteristica === 'string' ? carInfo.idTipoCaracteristica : null) ||
-                    carInfo.idTipoCaracteristica?.idTipoCaracteristica ||
-                    carInfo.tipoCaracteristica?.idTipoCaracteristica ||
-                    'general';
-                const tipoCarInfo = this.tiposCaracteristica.find(tc => tc.idTipoCaracteristica === idTipoCar)
-                    || (typeof carInfo.idTipoCaracteristica === 'object' ? carInfo.idTipoCaracteristica : null)
-                    || carInfo.tipoCaracteristica
-                    || {};
-                const nombreGrupo = tipoCarInfo.nombre || 'Opciones';
-                const nombreOpcion = carInfo.nombre || item.valor || 'Opción';
-                const etiquetaOpcion = item.valor && item.valor !== nombreOpcion
-                    ? `${nombreOpcion} (${item.valor})`
-                    : nombreOpcion;
-                if (!mapaGrupos.has(idTipoCar)) {
-                    mapaGrupos.set(idTipoCar, {
-                        idTipoCaracteristica: idTipoCar,
-                        nombre: nombreGrupo,
-                        opciones: []
+
+        const pcDAO = new ProductoCaracteristicaDAO(producto.idProducto);
+        return pcDAO.findRange(0, 50)
+            .then(resp => {
+                const asignadas = resp.datos || [];
+                const mapaGrupos = new Map();
+
+                asignadas.forEach(item => {
+                    const idCar =
+                        (typeof item.idCaracteristica === 'string' ? item.idCaracteristica : null) ||
+                        item.idCaracteristica?.idCaracteristica ||
+                        item.caracteristica?.idCaracteristica ||
+                        item.id ||
+                        null;
+                    const carInfo = this.caracteristicas.find(c => c.idCaracteristica === idCar)
+                        || (typeof item.idCaracteristica === 'object' ? item.idCaracteristica : null)
+                        || item.caracteristica
+                        || item
+                        || {};
+                    const idTipoCar =
+                        (typeof carInfo.idTipoCaracteristica === 'string' ? carInfo.idTipoCaracteristica : null) ||
+                        carInfo.idTipoCaracteristica?.idTipoCaracteristica ||
+                        carInfo.tipoCaracteristica?.idTipoCaracteristica ||
+                        'general';
+                    const tipoCarInfo = this.tiposCaracteristica.find(tc => tc.idTipoCaracteristica === idTipoCar)
+                        || (typeof carInfo.idTipoCaracteristica === 'object' ? carInfo.idTipoCaracteristica : null)
+                        || carInfo.tipoCaracteristica
+                        || {};
+                    const nombreGrupo = tipoCarInfo.nombre || 'Opciones';
+                    const nombreOpcion = carInfo.nombre || item.valor || 'Opción';
+                    const etiquetaOpcion = item.valor && item.valor !== nombreOpcion
+                        ? `${nombreOpcion} (${item.valor})`
+                        : nombreOpcion;
+
+                    if (!mapaGrupos.has(idTipoCar)) {
+                        mapaGrupos.set(idTipoCar, {
+                            idTipoCaracteristica: idTipoCar,
+                            nombre: nombreGrupo,
+                            opciones: []
+                        });
+                    }
+                    mapaGrupos.get(idTipoCar).opciones.push({
+                        idProductoCaracteristica: item.idProductoCaracteristica || idCar,
+                        idCaracteristica: idCar,
+                        etiqueta: etiquetaOpcion,
+                        valor: item.valor || nombreOpcion
                     });
-                }
-                mapaGrupos.get(idTipoCar).opciones.push({
-                    idProductoCaracteristica: item.idProductoCaracteristica || idCar,
-                    idCaracteristica: idCar,
-                    etiqueta: etiquetaOpcion,
-                    valor: item.valor || nombreOpcion
                 });
+
+                this.gruposCaracteristicasProducto = Array.from(mapaGrupos.values());
+                this._dibujar();
+            })
+            .catch(err => {
+                console.warn('No se pudieron cargar características del producto:', err);
+                this.gruposCaracteristicasProducto = [];
+                this._dibujar();
             });
-            this.gruposCaracteristicasProducto = Array.from(mapaGrupos.values());
-            this._dibujar();
-        } catch (err) {
-            console.warn('No se pudieron cargar características del producto:', err);
-            this.gruposCaracteristicasProducto = [];
-            this._dibujar();
-        }
     }
 
     _totalItemsCarrito() {
@@ -444,24 +465,35 @@ class PedidoModel extends HTMLElement {
     async _obtenerIdEmpleadoRolPorDefecto() {
         const sesion = this.sessionManager.obtenerSesion();
         if (sesion && sesion.modo === 'EMPLEADO' && sesion.idEmpleadoRolPrincipal) {
-            return sesion.idEmpleadoRolPrincipal;
+            return Promise.resolve(sesion.idEmpleadoRolPrincipal);
         }
+
         const base = this.ordenDAO.URL.replace(/orden\/$/, '');
-        const respEmp = await fetch(`${base}empleado?first=0&max=50`);
-        if (!respEmp.ok) return null;
-        const empleados = await respEmp.json();
-        for (const emp of (Array.isArray(empleados) ? empleados : [])) {
-            const idEmp = emp.idEmpleado;
-            if (!idEmp) continue;
-            const respRol = await fetch(`${base}empleado/${idEmp}/rol?first=0&max=50`);
-            if (!respRol.ok) continue;
-            const roles = await respRol.json();
-            const erActivo = (Array.isArray(roles) ? roles : []).find(r => r.activo !== false) || roles[0];
-            if (erActivo?.idEmpleadoRol) {
-                return erActivo.idEmpleadoRol;
-            }
-        }
-        return null;
+        return fetch(`${base}empleado?first=0&max=50`)
+            .then(respEmp => (respEmp.ok ? respEmp.json() : []))
+            .then(empleados => {
+                const lista = Array.isArray(empleados) ? empleados : [];
+                return Promise.all(
+                    lista
+                        .filter(emp => emp.idEmpleado)
+                        .map(emp =>
+                            fetch(`${base}empleado/${emp.idEmpleado}/rol?first=0&max=50`)
+                                .then(r => (r.ok ? r.json() : []))
+                                .catch(() => [])
+                        )
+                );
+            })
+            .then(listasRoles => {
+                for (const roles of listasRoles) {
+                    const arr = Array.isArray(roles) ? roles : [];
+                    const erActivo = arr.find(r => r.activo !== false) || arr[0];
+                    if (erActivo?.idEmpleadoRol) {
+                        return erActivo.idEmpleadoRol;
+                    }
+                }
+                return null;
+            })
+            .catch(() => null);
     }
 
     async _confirmarYEnviarOrden({ items, nombreCliente }) {
@@ -469,80 +501,98 @@ class PedidoModel extends HTMLElement {
         this._enviandoOrden = true;
         this._limpiarError();
         const clienteLimpio = (nombreCliente || '').trim() || 'Consumidor Final';
-        try {
-            const idEmpleadoRolValido = await this._obtenerIdEmpleadoRolPorDefecto();
-            if (!idEmpleadoRolValido) {
-                throw {
-                    mensaje: 'No se encontró ningún EmpleadoRol activo para asignar la orden en línea.'
-                };
-            }
-            const resumenProductos = items
-                .map(item => {
-                    const detalleCar = item.personalizacion && item.personalizacion !== 'Estándar'
-                        ? ` (${item.personalizacion})`
-                        : '';
-                    const etiquetaDesc = item.nombreDescuento ? ` [${item.nombreDescuento}]` : '';
-                    return `${item.cantidad}x ${item.nombre}${detalleCar}${etiquetaDesc}`;
-                })
-                .join(', ');
-            const observacionesOrden = [
-                `[CLIENTE: ${clienteLimpio}]`,
-                'Para llevar',
-                resumenProductos
-            ].filter(Boolean).join(' | ');
-            const nuevaOrden = new Orden();
-            nuevaOrden.idEmpleadoRol = { idEmpleadoRol: idEmpleadoRolValido };
-            nuevaOrden.fechaCreacion = new Date().toISOString();
-            nuevaOrden.observaciones = observacionesOrden;
-            delete nuevaOrden.idOrden;
-            const respOrden = await this.ordenDAO.create(nuevaOrden);
-            const idOrdenGenerado = respOrden.datos?.id;
-            if (!idOrdenGenerado) {
-                throw {
-                    mensaje: 'La orden se creó, pero no se pudo leer el ID desde la cabecera Location.'
-                };
-            }
-            const ordenProductoDAO = new OrdenProductoDAO(idOrdenGenerado);
-            for (const item of items) {
-                for (let i = 0; i < item.cantidad; i++) {
-                    const obsItem = [
-                        `[CLIENTE: ${clienteLimpio}]`,
-                        item.personalizacion || 'Estándar',
-                        item.nombreDescuento ? `Promo: ${item.nombreDescuento}` : null
-                    ].filter(Boolean).join(' | ');
-                    const detalle = {
-                        idProducto: { idProducto: item.idProducto },
-                        precio: item.precio,
-                        observaciones: obsItem
-                    };
-                    await ordenProductoDAO.create(detalle);
+        let idOrdenGenerado = null;
+
+        return this._obtenerIdEmpleadoRolPorDefecto()
+            .then(idEmpleadoRolValido => {
+                if (!idEmpleadoRolValido) {
+                    return Promise.reject({
+                        mensaje: 'No se encontró ningún EmpleadoRol activo para asignar la orden en línea.'
+                    });
                 }
-            }
-            this.carrito = [];
-            this._ordenConfirmadaId = idOrdenGenerado;
-            this._clienteConfirmado = clienteLimpio;
-            this.pasoActual = 5;
-            this._dibujar();
-        } catch (err) {
-            console.error('Error al registrar la orden pendiente:', err);
-            const status = err?.error?.status || err?.status || null;
-            let mensaje = err?.mensaje || err?.message || 'No se pudo registrar la orden. Revisa la conexión con el servidor.';
-            if (err?.error?.headers) {
-                const headerErr = err.error.headers.get('Wrong-parameter') || err.error.headers.get('Process-error');
-                if (headerErr) mensaje += ` (${headerErr})`;
-            }
-            this._mostrarError(
-                'Error al confirmar la orden',
-                { status, mensaje },
-                () => this._confirmarYEnviarOrden({ items, nombreCliente: clienteLimpio })
-            );
-        } finally {
-            this._enviandoOrden = false;
-        }
+
+                const resumenProductos = items
+                    .map(item => {
+                        const detalleCar = item.personalizacion && item.personalizacion !== 'Estándar'
+                            ? ` (${item.personalizacion})`
+                            : '';
+                        const etiquetaDesc = item.nombreDescuento ? ` [${item.nombreDescuento}]` : '';
+                        return `${item.cantidad}x ${item.nombre}${detalleCar}${etiquetaDesc}`;
+                    })
+                    .join(', ');
+
+                const observacionesOrden = [
+                    `[CLIENTE: ${clienteLimpio}]`,
+                    'Para llevar',
+                    resumenProductos
+                ].filter(Boolean).join(' | ');
+
+                const nuevaOrden = new Orden();
+                nuevaOrden.idEmpleadoRol = { idEmpleadoRol: idEmpleadoRolValido };
+                nuevaOrden.fechaCreacion = new Date().toISOString();
+                nuevaOrden.observaciones = observacionesOrden;
+                delete nuevaOrden.idOrden;
+
+                return this.ordenDAO.create(nuevaOrden);
+            })
+            .then(respOrden => {
+                idOrdenGenerado = respOrden.datos?.id;
+                if (!idOrdenGenerado) {
+                    return Promise.reject({
+                        mensaje: 'La orden se creó, pero no se pudo leer el ID desde la cabecera Location.'
+                    });
+                }
+
+                const ordenProductoDAO = new OrdenProductoDAO(idOrdenGenerado);
+                const promesasItems = [];
+
+                items.forEach(item => {
+                    for (let i = 0; i < item.cantidad; i++) {
+                        const obsItem = [
+                            `[CLIENTE: ${clienteLimpio}]`,
+                            item.personalizacion || 'Estándar',
+                            item.nombreDescuento ? `Promo: ${item.nombreDescuento}` : null
+                        ].filter(Boolean).join(' | ');
+
+                        const detalle = {
+                            idProducto: { idProducto: item.idProducto },
+                            precio: item.precio,
+                            observaciones: obsItem
+                        };
+                        promesasItems.push(ordenProductoDAO.create(detalle));
+                    }
+                });
+
+                return Promise.all(promesasItems);
+            })
+            .then(() => {
+                this.carrito = [];
+                this._ordenConfirmadaId = idOrdenGenerado;
+                this._clienteConfirmado = clienteLimpio;
+                this.pasoActual = 5;
+                this._dibujar();
+            })
+            .catch(err => {
+                console.error('Error al registrar la orden pendiente:', err);
+                const status = err?.error?.status || err?.status || null;
+                let mensaje = err?.mensaje || err?.message || 'No se pudo registrar la orden. Revisa la conexión con el servidor.';
+                if (err?.error?.headers) {
+                    const headerErr = err.error.headers.get('Wrong-parameter') || err.error.headers.get('Process-error');
+                    if (headerErr) mensaje += ` (${headerErr})`;
+                }
+                this._mostrarError(
+                    'Error al confirmar la orden',
+                    { status, mensaje },
+                    () => this._confirmarYEnviarOrden({ items, nombreCliente: clienteLimpio })
+                );
+            })
+            .finally(() => {
+                this._enviandoOrden = false;
+            });
     }
 
     _dibujar() {
-        const erroresActuales = this.root.querySelector('#zonaErrores')?.innerHTML || '';
+        const alertaPrevia = this.root.querySelector('#zonaErrores mensaje-error');
         this.root.innerHTML = `
             <style>
                 :host {
@@ -616,9 +666,13 @@ class PedidoModel extends HTMLElement {
                     background: var(--color-acento-hover, #a82822);
                 }
             </style>
-            <div class="zona-errores" id="zonaErrores">${erroresActuales}</div>
+            <div class="zona-errores" id="zonaErrores"></div>
             <div id="contenidoPaso"></div>
         `;
+        if (alertaPrevia) {
+            this.root.querySelector('#zonaErrores').appendChild(alertaPrevia);
+        }
+
         const contenedor = this.root.querySelector('#contenidoPaso');
         if (this.cargando) {
             const p = document.createElement('p');

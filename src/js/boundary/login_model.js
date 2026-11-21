@@ -14,7 +14,7 @@ class LoginModel extends HTMLElement {
         this._dibujar();
     }
 
-    _redirigirSegunSesion(sesion) {
+  _redirigirSegunSesion(sesion) {
         if (!sesion) return;
 
         this.dispatchEvent(new CustomEvent('sesion-iniciada', {
@@ -22,31 +22,6 @@ class LoginModel extends HTMLElement {
             bubbles: true,
             composed: true
         }));
-
-        if (sesion.modo === 'CLIENTE') {
-            window.location.href = './pedido.html';
-            return;
-        }
-
-        switch (sesion.vistaInicial) {
-            case 'BARISTA':
-                window.location.href = './orden.html';
-                break;
-            case 'CAJERO':
-                window.location.href = './pago.html';
-                break;
-            case 'ADMINISTRADOR':
-                window.location.href = './pago.html';
-                break;
-            case 'COCINERO':
-                window.location.href = './orden.html';
-                break;
-            case 'GERENTE':
-            default:
-                window.location.href = './pedido.html';
-                break;
-           
-        }
     }
 
     async _procesarLoginEmpleado({ nombre, idEmpleado, recordar }) {
@@ -54,21 +29,21 @@ class LoginModel extends HTMLElement {
         this._loginComp.error = '';
         this._loginComp.cargando = true;
 
-        try {
-            const sesion = await this.sessionManager.autenticarEmpleado(
-                nombre,
-                idEmpleado,
-                recordar
-            );
-            this.sesionActual = sesion;
-            this._redirigirSegunSesion(sesion);
-        } catch (err) {
-            this._loginComp.error = err?.message || 'No se pudieron validar las credenciales.';
-        } finally {
-            if (this._loginComp) {
-                this._loginComp.cargando = false;
-            }
-        }
+        return this.sessionManager.autenticarEmpleado(nombre, idEmpleado, recordar)
+            .then((sesion) => {
+                this.sesionActual = sesion;
+                this._redirigirSegunSesion(sesion);
+            })
+            .catch((err) => {
+                if (this._loginComp) {
+                    this._loginComp.error = err?.message || 'No se pudieron validar las credenciales.';
+                }
+            })
+            .finally(() => {
+                if (this._loginComp) {
+                    this._loginComp.cargando = false;
+                }
+            });
     }
 
     _procesarAccesoCliente() {

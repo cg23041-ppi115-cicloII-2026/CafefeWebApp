@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4B3621">
     <title>Cafefe | Pedido en Línea</title>
     <link rel="icon" type="image/png" href="./resources/img/logo_cafe.png">
     <link rel="stylesheet" href="./resources/estilos/principal.css">
@@ -15,13 +16,8 @@
     </style>
 </head>
 <body>
-    <!-- PANTALLA DE LOGIN ORQUESTADA POR <login-model> (oculta al inicio) -->
-    <section id="seccionLogin" class="oculto">
-        <login-model id="componenteLoginModel" logo="./resources/img/logo_cafe.png"></login-model>
-    </section>
-
-    <!-- PANTALLA DE INICIO PRINCIPAL -->
-    <div class="layout-grid" id="contenedorInicio">
+    <!-- VISTA 1: PORTADA DE INICIO -->
+    <div class="layout-grid" id="vistaContenedorInicio">
         <cafefe-navbar titulo="Cafefe" id="navbarInicio" ocultar-cerrar-sesion>
             <button type="button" class="btn-secundario" id="linkInicio">Inicio</button>
             <button type="button" class="btn-outline" id="linkPedido">Hacer Pedido</button>
@@ -78,89 +74,213 @@
         </footer>
     </div>
 
+    <!-- VISTA 2: LOGIN -->
+    <div class="layout-grid oculto" id="vistaContenedorLogin">
+        <cafefe-navbar titulo="Cafefe · Iniciar Sesión" ocultar-cerrar-sesion>
+            <button type="button" class="btn-outline" data-nav="inicio">Inicio</button>
+        </cafefe-navbar>
+
+        <main>
+            <login-model id="componenteLoginModel" logo="./resources/img/logo_cafe.png"></login-model>
+        </main>
+
+        <footer class="footer-cafefe">
+            <p>© 2026 Cafefe &nbsp;·&nbsp; Pedido en Línea &nbsp;·&nbsp; Pago al recoger en local</p>
+        </footer>
+    </div>
+
+    <!-- VISTA 3: PEDIDO EN LÍNEA (CLIENTE / GERENTE) -->
+    <div class="layout-grid oculto" id="vistaContenedorPedido">
+        <cafefe-navbar titulo="Cafefe" id="navbarPedido" ocultar-cerrar-sesion>
+            <button type="button" class="btn-outline" data-nav="inicio">Inicio</button>
+        </cafefe-navbar>
+
+        <main id="hostPedidoModel"></main>
+
+        <footer class="footer-cafefe">
+            <p>© 2026 Cafefe &nbsp;·&nbsp; Pedido en Línea &nbsp;·&nbsp; Pago al recoger en local</p>
+        </footer>
+    </div>
+
+    <!-- VISTA 4: PANTALLA DE COCINA Y BARISTA -->
+    <div id="vistaContenedorOrden" class="oculto"></div>
+
+    <!-- VISTA 5: TERMINAL DE CAJA Y FACTURACIÓN (TPV) -->
+    <div id="vistaContenedorPago" class="oculto"></div>
+
     <script type="module" src="./js/boundary/main.js"></script>
     <script type="module">
         import SessionManager from "./js/control/session_manager.js";
         import "./js/boundary/components/cafefe_navbar.js";
         import "./js/boundary/login_model.js";
+        import "./js/boundary/pedido_model.js";
+        import "./js/boundary/orden_model.js";
+        import "./js/boundary/pago_model.js";
 
         const sessionManager = new SessionManager();
-        const contenedorInicio = document.getElementById("contenedorInicio");
-        const seccionLogin = document.getElementById("seccionLogin");
-        const navbarInicio = document.getElementById("navbarInicio");
-        const btnPedido = document.getElementById("btnIrPedido");
-        const linkPedido = document.getElementById("linkPedido");
-        const linkMostrarLogin = document.getElementById("linkMostrarLogin");
 
-        function abrirVistaLogin() {
-            contenedorInicio.classList.add("oculto");
-            seccionLogin.classList.remove("oculto");
+        const vistas = {
+            inicio: document.getElementById("vistaContenedorInicio"),
+            login: document.getElementById("vistaContenedorLogin"),
+            pedido: document.getElementById("vistaContenedorPedido"),
+            orden: document.getElementById("vistaContenedorOrden"),
+            pago: document.getElementById("vistaContenedorPago")
+        };
+
+        const titulos = {
+            inicio: "Cafefe | Pedido en Línea",
+            login: "Cafefe | Iniciar Sesión",
+            pedido: "Cafefe | Mi Pedido",
+            orden: "Cafefe · Pantalla de Cocina y Barista",
+            pago: "Cafefe · Caja y Pagos (TPV)"
+        };
+
+        function actualizarNavbarsSesion() {
+            const sesion = sessionManager.obtenerSesion();
+            const navbarInicio = document.getElementById("navbarInicio");
+            const navbarPedido = document.getElementById("navbarPedido");
+            const linkMostrarLogin = document.getElementById("linkMostrarLogin");
+
+            if (sesion && sesion.modo === "EMPLEADO") {
+                const etiqueta = `${sesion.nombre} · ${sesion.vistaInicial}`;
+                if (linkMostrarLogin) {
+                    linkMostrarLogin.textContent = `Estación (${sesion.nombre})`;
+                }
+                [navbarInicio, navbarPedido].forEach(nav => {
+                    if (nav) {
+                        nav.setAttribute("usuario", etiqueta);
+                        nav.removeAttribute("ocultar-cerrar-sesion");
+                    }
+                });
+            } else {
+                if (linkMostrarLogin) {
+                    linkMostrarLogin.textContent = "Iniciar Sesión";
+                }
+                [navbarInicio, navbarPedido].forEach(nav => {
+                    if (nav) {
+                        nav.removeAttribute("usuario");
+                        nav.setAttribute("ocultar-cerrar-sesion", "");
+                    }
+                });
+            }
         }
 
-        function redirigirSegunSesion(sesion) {
-            if (!sesion) return;
-            if (sesion.modo === "CLIENTE") {
-                window.location.href = "./pedido.html";
-                return;
+        function montarComponenteVista(nombre) {
+            if (nombre === "pedido") {
+                const host = document.getElementById("hostPedidoModel");
+                if (!host.querySelector("pedido-model")) {
+                    host.innerHTML = "";
+                    host.appendChild(document.createElement("pedido-model"));
+                }
+            } else if (nombre === "orden") {
+                const cont = vistas.orden;
+                if (!cont.querySelector("orden-model")) {
+                    cont.innerHTML = "";
+                    cont.appendChild(document.createElement("orden-model"));
+                }
+            } else if (nombre === "pago") {
+                const cont = vistas.pago;
+                if (!cont.querySelector("pago-model")) {
+                    cont.innerHTML = "";
+                    cont.appendChild(document.createElement("pago-model"));
+                }
             }
+        }
+
+        function navegarA(ruta, actualizarHash = true) {
+            const destino = vistas[ruta] ? ruta : "inicio";
+
+            Object.entries(vistas).forEach(([clave, el]) => {
+                el.classList.toggle("oculto", clave !== destino);
+            });
+
+            document.title = titulos[destino] || "Cafefe";
+            actualizarNavbarsSesion();
+            montarComponenteVista(destino);
+
+            if (actualizarHash && window.location.hash !== `#/${destino}`) {
+                window.location.hash = `#/${destino}`;
+            }
+            window.scrollTo(0, 0);
+        }
+
+        function resolverRutaPorSesion(sesion) {
+            if (!sesion) return "inicio";
+            if (sesion.modo === "CLIENTE") return "pedido";
+
             switch (sesion.vistaInicial) {
                 case "BARISTA":
-                    window.location.href = "./orden.html";
-                    break;
+                case "COCINERO":
+                    return "orden";
                 case "CAJERO":
-                    window.location.href = "./pago.html";
-                    break;
+                case "ADMINISTRADOR":
+                    return "pago";
                 case "GERENTE":
                 default:
-                    window.location.href = "./pedido.html";
-                    break;
+                    return "pedido";
             }
         }
 
-        // Botón ORDENAR AHORA (Cliente)
-        if (btnPedido) {
-            btnPedido.addEventListener("click", () => {
-                sessionManager.iniciarModoCliente();
-                window.location.href = "./pedido.html";
-            });
-        }
-
-        // Botón "Hacer Pedido" del menú superior
-        if (linkPedido) {
-            linkPedido.addEventListener("click", (e) => {
-                e.preventDefault();
-                sessionManager.iniciarModoCliente();
-                window.location.href = "./pedido.html";
-            });
-        }
-
-        // Botón "Iniciar Sesión" -> si ya hay empleado logueado lleva a su estación; si no, abre <login-model>
-        if (linkMostrarLogin) {
-            linkMostrarLogin.addEventListener("click", (e) => {
-                e.preventDefault();
-                const sesionActual = sessionManager.obtenerSesion();
-                if (sesionActual && sesionActual.modo === "EMPLEADO") {
-                    redirigirSegunSesion(sesionActual);
-                } else {
-                    abrirVistaLogin();
-                }
-            });
-        }
-
-        // Mostrar botón <boton-cerrar-sesion> en <cafefe-navbar> SOLO si ingresó con login de empleado
-        const sesionGuardada = sessionManager.obtenerSesion();
-        if (sesionGuardada && sesionGuardada.modo === "EMPLEADO" && navbarInicio) {
-            if (linkMostrarLogin) {
-                linkMostrarLogin.textContent = `Estación (${sesionGuardada.nombre})`;
-            }
-            navbarInicio.setAttribute("usuario", `${sesionGuardada.nombre} · ${sesionGuardada.vistaInicial}`);
-            navbarInicio.removeAttribute("ocultar-cerrar-sesion");
-        }
-
-        document.addEventListener("cerrar-sesion", () => {
-            sessionManager.cerrarSesion();
-            window.location.href = "./login.html";
+        // Evento emitido por <login-model> cuando inicia sesión como empleado o cliente
+        document.addEventListener("sesion-iniciada", (e) => {
+            const sesion = e.detail || sessionManager.obtenerSesion();
+            navegarA(resolverRutaPorSesion(sesion));
         });
+
+        // Evento emitido por <cafefe-navbar> al cerrar sesión (en captura para evitar recargas .html)
+        document.addEventListener("cerrar-sesion", (e) => {
+            e.stopPropagation();
+            sessionManager.cerrarSesion();
+            document.getElementById("hostPedidoModel").innerHTML = "";
+            vistas.orden.innerHTML = "";
+            vistas.pago.innerHTML = "";
+            navegarA("login");
+        }, true);
+
+        // Botones de navegación en Inicio y Pedido
+        document.querySelectorAll("[data-nav]").forEach(btn => {
+            btn.addEventListener("click", () => navegarA(btn.dataset.nav));
+        });
+
+        document.getElementById("linkInicio")?.addEventListener("click", () => navegarA("inicio"));
+
+        const abrirPedidoCliente = (e) => {
+            if (e) e.preventDefault();
+            const sesionActual = sessionManager.obtenerSesion();
+            if (!sesionActual || sesionActual.modo !== "EMPLEADO") {
+                sessionManager.iniciarModoCliente();
+            }
+            navegarA("pedido");
+        };
+
+        document.getElementById("btnIrPedido")?.addEventListener("click", abrirPedidoCliente);
+        document.getElementById("linkPedido")?.addEventListener("click", abrirPedidoCliente);
+
+        document.getElementById("linkMostrarLogin")?.addEventListener("click", (e) => {
+            e.preventDefault();
+            const sesionActual = sessionManager.obtenerSesion();
+            if (sesionActual && sesionActual.modo === "EMPLEADO") {
+                navegarA(resolverRutaPorSesion(sesionActual));
+            } else {
+                navegarA("login");
+            }
+        });
+
+        // Sincronización con botón Atrás/Adelante del navegador
+        window.addEventListener("hashchange", () => {
+            const rutaHash = window.location.hash.replace(/^#\/?/, "").toLowerCase();
+            if (vistas[rutaHash]) {
+                navegarA(rutaHash, false);
+            }
+        });
+
+        // Carga inicial según hash o sesión activa
+        const hashInicial = window.location.hash.replace(/^#\/?/, "").toLowerCase();
+        if (vistas[hashInicial]) {
+            navegarA(hashInicial, false);
+        } else {
+            navegarA("inicio", true);
+        }
     </script>
 </body>
 </html>

@@ -1,12 +1,7 @@
-
-const CACHE_NAME = "cafefe-app-v1.0.3";//anteriormente estaba en v1.0.1, pero al cambiar el nombre de la carpeta de recursos a "resources" y mover los archivos de estilos y scripts a esa carpeta, se actualizó la versión del cache para forzar la actualización de los recursos en el navegador del usuario.
+const CACHE_NAME = "cafefe-app-v1.0.7";
 const ARCHIVOS_CACHE = [
     "./",
     "./index.html",
-    "./login.html",
-    "./orden.html",
-    "./pago.html",
-    "./pedido.html",
     "./manifest.json",
 
     "./resources/img/logo_cafe.png",
@@ -30,7 +25,7 @@ const ARCHIVOS_CACHE = [
     "./resources/img/productos/termo.png",
     "./resources/img/productos/te-verde.png",
 
-   // Estilos
+  // Estilos
     "./resources/estilos/index.css",
     "./resources/estilos/principal.css",
     "./resources/estilos/orden_model.css",
@@ -41,15 +36,20 @@ const ARCHIVOS_CACHE = [
     "./resources/estilos/components/boton_instalar_pwa.css",
     "./resources/estilos/components/detalle_producto.css",
     "./resources/estilos/components/grid_categorias.css",
+    "./resources/estilos/components/historial_facturas.css",
     "./resources/estilos/components/login_cafefe.css",
     "./resources/estilos/components/mensaje_error.css",
+    "./resources/estilos/components/modal_historial_orden.css",
     "./resources/estilos/components/orden_proceso.css",
     "./resources/estilos/components/panel_cobro.css",
     "./resources/estilos/components/resumen_orden.css",
+    "./resources/estilos/components/tabla_facturas.css",
     "./resources/estilos/components/tarjeta_horizontal.css",
     "./resources/estilos/components/tarjeta_orden.css",
 
+    // Boundary Models y Componentes
     "./js/boundary/main.js",
+    "./js/boundary/historial_facturas_model.js",
     "./js/boundary/orden_model.js",
     "./js/boundary/pago_model.js",
     "./js/boundary/pedido_model.js",
@@ -80,6 +80,7 @@ const ARCHIVOS_CACHE = [
     "./js/boundary/components/pedido/grid_categorias.js",
     "./js/boundary/components/pedido/resumen_orden.js",
 
+    // Control (DAOs y SessionManager)
     "./js/control/default_dao.js",
     "./js/control/caja_dao.js",
     "./js/control/caracteristica_dao.js",
@@ -101,6 +102,7 @@ const ARCHIVOS_CACHE = [
     "./js/control/empleado_dao.js",
     "./js/control/empleado_rol_dao.js",
 
+    // Entity
     "./js/entity/default_error.js",
     "./js/entity/default_response.js",
     "./js/entity/orden.js",
@@ -131,20 +133,29 @@ self.addEventListener("fetch", event => {
     const req = event.request;
     const url = new URL(req.url);
 
-    // 1. Nunca interceptar peticiones que no sean GET (POST, PUT, DELETE) ni llamadas a la API REST
+    // 1. Nunca interceptar peticiones que no sean GET ni llamadas a la API REST
     if (req.method !== "GET" || url.pathname.includes("/cafefe/v1/")) {
         return;
     }
 
-    // 2. Network-First para HTML y JS: evita congelar sesiones, logins o cambios recientes en desarrollo/producción
-    const esDocumentoOScript =
-        req.mode === "navigate" ||
-        req.destination === "document" ||
-        req.destination === "script" ||
-        url.pathname.endsWith(".html") ||
-        url.pathname.endsWith(".js");
+    // 2. Navegación SPA: Network-First con fallback a ./index.html
+    if (req.mode === "navigate" || req.destination === "document" || url.pathname.endsWith(".html")) {
+        event.respondWith(
+            fetch(req)
+                .then(networkResp => {
+                    if (networkResp && networkResp.ok) {
+                        const copia = networkResp.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(req, copia));
+                    }
+                    return networkResp;
+                })
+                .catch(() => caches.match(req).then(res => res || caches.match("./index.html")))
+        );
+        return;
+    }
 
-    if (esDocumentoOScript) {
+    // 3. Scripts JS: Network-First para reflejar cambios recientes sin congelar módulos
+    if (req.destination === "script" || url.pathname.endsWith(".js")) {
         event.respondWith(
             fetch(req)
                 .then(networkResp => {
@@ -159,7 +170,7 @@ self.addEventListener("fetch", event => {
         return;
     }
 
-    // 3. Cache-First para activos estáticos (CSS, imágenes, iconos, manifest)
+    // 4. Activos estáticos (CSS, imágenes, iconos, manifest): Cache-First
     event.respondWith(
         caches.match(req).then(cachedResp => {
             return cachedResp || fetch(req).then(networkResp => {

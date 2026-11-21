@@ -1,11 +1,10 @@
-import { html, render } from '../../lib/lit-html.js';
-import './tarjeta_simple.js';
-import TipoProducto from '../../entity/tipo_producto.js';
+import "./tarjeta_simple.js";
+import TipoProducto from "../../entity/tipo_producto.js";
 
 class TarjetaTipoProducto extends HTMLElement {
     constructor() {
         super();
-        this._root = this.attachShadow({ mode: 'open' });
+        this._root = this.attachShadow({ mode: "open" });
         this._tipoProducto = new TipoProducto();
     }
 
@@ -23,31 +22,31 @@ class TarjetaTipoProducto extends HTMLElement {
     }
 
     _manejarClick() {
-        this.dispatchEvent(new CustomEvent('seleccionar-tipo-producto', {
+        this.dispatchEvent(new CustomEvent("seleccionar-tipo-producto", {
             detail: this._tipoProducto,
             bubbles: true,
             composed: true
         }));
     }
 
-    _template() {
+    _dibujar() {
         const tp = this._tipoProducto;
+        const estadoTexto = tp.activo ? "Activo" : "Inactivo";
 
-        return html`
-            <tarjeta-simple 
-                id="tarjetaTipo-${tp.idTipoProducto || 'nuevo'}"
-                @click=${() => this._manejarClick()}>
-                <p slot="titulo">${tp.nombre || 'Sin nombre'}</p>
-                <p slot="contenido">${tp.observaciones || 'Sin observaciones'}</p>
-                <span slot="pie">${tp.activo ? 'Activo' : 'Inactivo'}</span>
+        this._root.innerHTML = `
+            <tarjeta-simple id="tarjetaTipo-${tp.idTipoProducto || "nuevo"}">
+                <p slot="titulo">${tp.nombre || "Sin nombre"}</p>
+                <p slot="contenido">${tp.observaciones || "Sin observaciones"}</p>
+                <span slot="pie">${estadoTexto}</span>
             </tarjeta-simple>
         `;
-    }
 
-    _dibujar() {
-        render(this._template(), this._root);
+        const tarjeta = this._root.querySelector("tarjeta-simple");
+        if (tarjeta) {
+            tarjeta.addEventListener("click", () => this._manejarClick());
+        }
     }
 }
 
-customElements.define('tarjeta-tipoproducto', TarjetaTipoProducto);
+customElements.define("tarjeta-tipoproducto", TarjetaTipoProducto);
 export default TarjetaTipoProducto;

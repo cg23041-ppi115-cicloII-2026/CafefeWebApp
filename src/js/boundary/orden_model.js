@@ -111,21 +111,20 @@ class OrdenModel extends HTMLElement {
     }
 
     async _obtenerCodigosOrdenesPagadas() {
-        try {
-            const res = await this._facturaDAO.findRange(0, 50);
-            const facturas = Array.isArray(res.datos) ? res.datos : [];
-            const codigos = new Set();
+        return this._facturaDAO.findRange(0, 50)
+            .then(res => {
+                const facturas = Array.isArray(res.datos) ? res.datos : [];
+                const codigos = new Set();
 
-            facturas.forEach(f => {
-                if (String(f.estado || "").toUpperCase() === "PAGADA") {
-                    const match = String(f.observaciones || "").match(/Orden\s*#([A-Z0-9]+)/i);
-                    if (match) codigos.add(match[1].toUpperCase());
-                }
-            });
-            return codigos;
-        } catch {
-            return new Set();
-        }
+                facturas.forEach(f => {
+                    if (String(f.estado || "").toUpperCase() === "PAGADA") {
+                        const match = String(f.observaciones || "").match(/Orden\s*#([A-Z0-9]+)/i);
+                        if (match) codigos.add(match[1].toUpperCase());
+                    }
+                });
+                return codigos;
+            })
+            .catch(() => new Set());
     }
 
     _extraerCliente(orden, items = []) {
@@ -245,12 +244,11 @@ class OrdenModel extends HTMLElement {
     }
 
     async _cargarOrdenes() {
-        try {
-            const [res, codigosPagados] = await Promise.all([
-                this._ordenDAO.findRange(0, 50),
-                this._obtenerCodigosOrdenesPagadas()
-            ]);
-
+        return Promise.all([
+            this._ordenDAO.findRange(0, 50),
+            this._obtenerCodigosOrdenesPagadas()
+        ])
+        .then(([res, codigosPagados]) => {
             this._limpiarError();
             const crudos = Array.isArray(res.datos) ? res.datos : [];
 
@@ -264,47 +262,47 @@ class OrdenModel extends HTMLElement {
                 (a, b) => (this._parsearFecha(a.fechaCreacion)?.getTime() || 0) - (this._parsearFecha(b.fechaCreacion)?.getTime() || 0)
             );
 
-            const resultados = await Promise.all(datos.map(async orden => {
-                try {
-                    const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
-                    if (codigosPagados.has(uidCorto)) return null;
+            return Promise.all(datos.map(orden => {
+                const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
+                if (codigosPagados.has(uidCorto)) return Promise.resolve(null);
 
-                    const prodDAO = new OrdenProductoDAO(orden.idOrden);
-                    const r = await prodDAO.findRange(0, 50);
-                    const items = Array.isArray(r.datos) ? r.datos : [];
-                    if (items.length === 0) return null;
+                const prodDAO = new OrdenProductoDAO(orden.idOrden);
+                return prodDAO.findRange(0, 50)
+                    .then(r => {
+                        const items = Array.isArray(r.datos) ? r.datos : [];
+                        if (items.length === 0) return null;
 
-                    const estado = this._extraerEstadoOficial(items);
-                    if (
-                        estado === "ENTREGADO" ||
-                        estado === "CANCELADO" ||
-                        estado === "PAGADA"
-                    ) {
-                        return null;
-                    }
+                        const estado = this._extraerEstadoOficial(items);
+                        if (
+                            estado === "ENTREGADO" ||
+                            estado === "CANCELADO" ||
+                            estado === "PAGADA"
+                        ) {
+                            return null;
+                        }
 
-                    const clienteNombre = this._extraerCliente(orden, items);
-                    const notaOrden = this._limpiarEtiquetasInternas(orden.observaciones);
-                    const ordenConCliente = {
-                        ...orden,
-                        clienteNombre,
-                        observaciones: clienteNombre
-                            ? `Cliente: ${clienteNombre}${notaOrden ? ` | ${notaOrden}` : ""}`
-                            : notaOrden
-                    };
+                        const clienteNombre = this._extraerCliente(orden, items);
+                        const notaOrden = this._limpiarEtiquetasInternas(orden.observaciones);
+                        const ordenConCliente = {
+                            ...orden,
+                            clienteNombre,
+                            observaciones: clienteNombre
+                                ? `Cliente: ${clienteNombre}${notaOrden ? ` | ${notaOrden}` : ""}`
+                                : notaOrden
+                        };
 
-                    if (estado === "LISTO") {
-                        return { tipo: "lista", orden: ordenConCliente, productos: this._normalizarProductos(items) };
-                    }
-                    if (estado === "PREPARANDOSE") {
-                        return { tipo: "proceso", orden: ordenConCliente, productos: this._normalizarProductos(items) };
-                    }
-                    return { tipo: "pendiente", orden: ordenConCliente };
-                } catch {
-                    return null;
-                }
+                        if (estado === "LISTO") {
+                            return { tipo: "lista", orden: ordenConCliente, productos: this._normalizarProductos(items) };
+                        }
+                        if (estado === "PREPARANDOSE") {
+                            return { tipo: "proceso", orden: ordenConCliente, productos: this._normalizarProductos(items) };
+                        }
+                        return { tipo: "pendiente", orden: ordenConCliente };
+                    })
+                    .catch(() => null);
             }));
-
+        })
+        .then(resultados => {
             const pendientes = [];
             const listas = [];
             let enProceso = null;
@@ -324,13 +322,14 @@ class OrdenModel extends HTMLElement {
             this._enProceso = enProceso;
             this._listas = listas;
             this._renderizarListas();
-        } catch (err) {
+        })
+        .catch(err => {
             this._mostrarError(
                 "No se pudo cargar la cola de órdenes",
                 err,
                 () => this._cargarOrdenes()
             );
-        }
+        });
     }
 
     _actualizarProductosBD(idOrden, productos, etiquetaEstado) {
@@ -473,45 +472,45 @@ class OrdenModel extends HTMLElement {
         const modal = this._root.querySelector("modal-historial-orden");
         if (!modal) return;
 
-        try {
-            const [resOrdenes, codigosPagados] = await Promise.all([
-                this._ordenDAO.findRange(0, 50),
-                this._obtenerCodigosOrdenesPagadas()
-            ]);
-
+        return Promise.all([
+            this._ordenDAO.findRange(0, 50),
+            this._obtenerCodigosOrdenesPagadas()
+        ])
+        .then(([resOrdenes, codigosPagados]) => {
             const lista = Array.isArray(resOrdenes.datos) ? resOrdenes.datos : [];
             const ordenesHoy = lista.filter(o => this._esDeHoy(o.fechaCreacion || o.fecha_creacion));
 
-            const itemsHistorial = await Promise.all(ordenesHoy.map(async orden => {
-                try {
-                    const pDAO = new OrdenProductoDAO(orden.idOrden);
-                    const r = await pDAO.findRange(0, 50);
-                    const items = Array.isArray(r.datos) ? r.datos : [];
-                    const estadoOficial = this._extraerEstadoOficial(items);
+            return Promise.all(ordenesHoy.map(orden => {
+                const pDAO = new OrdenProductoDAO(orden.idOrden);
+                return pDAO.findRange(0, 50)
+                    .then(r => {
+                        const items = Array.isArray(r.datos) ? r.datos : [];
+                        const estadoOficial = this._extraerEstadoOficial(items);
 
-                    if (estadoOficial === "ENTREGADO" || estadoOficial === "CANCELADO" || estadoOficial === "PAGADA") {
-                        const clienteNombre = this._extraerCliente(orden, items);
-                        const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
-                        const yaPagada = estadoOficial === "PAGADA" || codigosPagados.has(uidCorto);
+                        if (estadoOficial === "ENTREGADO" || estadoOficial === "CANCELADO" || estadoOficial === "PAGADA") {
+                            const clienteNombre = this._extraerCliente(orden, items);
+                            const uidCorto = String(orden.idOrden || "").slice(-5).toUpperCase();
+                            const yaPagada = estadoOficial === "PAGADA" || codigosPagados.has(uidCorto);
 
-                        return {
-                            orden: { ...orden, clienteNombre },
-                            productos: items,
-                            estado: estadoOficial === "CANCELADO" ? "cancelado" : "entregado",
-                            detalleEstado: this._extraerDetalleCanceladoOEntregado(items[0]?.observaciones || ""),
-                            pagada: yaPagada
-                        };
-                    }
-                    return null;
-                } catch {
-                    return null;
-                }
+                            return {
+                                orden: { ...orden, clienteNombre },
+                                productos: items,
+                                estado: estadoOficial === "CANCELADO" ? "cancelado" : "entregado",
+                                detalleEstado: this._extraerDetalleCanceladoOEntregado(items[0]?.observaciones || ""),
+                                pagada: yaPagada
+                            };
+                        }
+                        return null;
+                    })
+                    .catch(() => null);
             }));
-
+        })
+        .then(itemsHistorial => {
             modal.abrir(itemsHistorial.filter(Boolean));
-        } catch (err) {
+        })
+        .catch(err => {
             this._mostrarError("Error al cargar el historial del turno", err);
-        }
+        });
     }
 
     _reabrirOrden(itemHistorial) {
